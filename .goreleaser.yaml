@@ -23,16 +23,10 @@ builds:
     hooks:
       pre:
         - make prebuild GOOS={{ .Os }} GOARCH={{ .Arch }}
-        - go run ./scripts/download-tools --os {{ .Os }} --arch {{ .Arch }} --output dist/tools/{{ .Os }}_{{ .Arch }}
+        - go run ./scripts/download-tools --os {{ .Os }} --arch {{ .Arch }} --output pkg/tools/bins
       post:
+        - bash -c "find pkg/tools/bins -type f ! -name '.gitkeep' ! -name 'placeholder' -delete"
         - rm -f pkg/vm/rra-agent
-
-archives:
-  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - src: "dist/tools/{{ .Os }}_{{ .Arch }}/*"
-        dst: "."
-        strip_parent: true
 
 signs:
   - cmd: cosign
