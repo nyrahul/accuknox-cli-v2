@@ -23,4 +23,5 @@ type PlatformConfig struct {
 	Source    string `yaml:"source"`
 	SHA256    string `yaml:"sha256"`
 	InstallAs string `yaml:"install_as"` // overrides tool-level InstallAs when set
+	Binary    string `yaml:"binary"`     // filename of binary inside archive (optional; defaults to install_as)
 }

@@ -87,15 +87,12 @@ func (t *Tool) EnsureInstalled() (string, error) {
 		return cached, nil
 	}
 
-	// 3. Download — only if sha256 is provided.
-	if cfg.SHA256 == "" {
-		return "", fmt.Errorf("tool %q has no sha256 checksum configured; cannot download safely", t.Name)
-	}
+	// 3. Download.
 	fmt.Printf("Downloading %s %s...\n", t.Name, t.Version)
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create install dir: %w", err)
 	}
-	if err := downloadAndInstall(cfg.Source, cfg.SHA256, installAs, cached); err != nil {
+	if err := downloadAndInstall(cfg, installAs, cached); err != nil {
 		return "", fmt.Errorf("failed to install %s: %w", t.Name, err)
 	}
 	fmt.Printf("Installed %s to %s\n", t.Name, cached)
@@ -122,11 +119,6 @@ func (t *Tool) DownloadTo(goos, goarch, outputDir string) error {
 		// Tool not available for this platform — skip silently.
 		return nil
 	}
-	if cfg.SHA256 == "" {
-		fmt.Printf("  Skipping %s (%s/%s): no sha256 configured\n", t.Name, goos, goarch)
-		return nil
-	}
-
 	cacheDir := buildCacheDir(goos, goarch)
 	cached := filepath.Join(cacheDir, installAs)
 
@@ -136,7 +128,7 @@ func (t *Tool) DownloadTo(goos, goarch, outputDir string) error {
 		if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create build cache dir: %w", err)
 		}
-		if err := downloadAndInstall(cfg.Source, cfg.SHA256, installAs, cached); err != nil {
+		if err := downloadAndInstall(cfg, installAs, cached); err != nil {
 			return fmt.Errorf("failed to download %s for %s/%s: %w", t.Name, goos, goarch, err)
 		}
 		fmt.Printf("  Cached at %s\n", cached)
@@ -185,17 +177,26 @@ func installDir() string {
 	return filepath.Join(home, ".accuknox-config", "tools")
 }
 
-// downloadAndInstall fetches sourceURL, verifies the optional SHA256, then
+// archiveBinary returns the name of the binary to look for inside an archive.
+// Uses cfg.Binary if explicitly set; otherwise falls back to installAs.
+func (cfg *PlatformConfig) archiveBinary(installAs string) string {
+	if cfg.Binary != "" {
+		return cfg.Binary
+	}
+	return installAs
+}
+
+// downloadAndInstall fetches the source URL, verifies the optional SHA256, then
 // extracts the binary from .tar.gz / .zip archives or saves it directly.
-func downloadAndInstall(sourceURL, expectedSHA256, installAs, destPath string) error {
-	resp, err := http.Get(sourceURL) // #nosec G107
+func downloadAndInstall(cfg *PlatformConfig, installAs, destPath string) error {
+	resp, err := http.Get(cfg.Source) // #nosec G107
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download returned HTTP %d for %s", resp.StatusCode, sourceURL)
+		return fmt.Errorf("download returned HTTP %d for %s", resp.StatusCode, cfg.Source)
 	}
 
 	tmp, err := os.CreateTemp("", "knoxctl-tool-*")
@@ -212,26 +213,26 @@ func downloadAndInstall(sourceURL, expectedSHA256, installAs, destPath string) e
 	}
 	tmp.Close()
 
-	if expectedSHA256 != "" {
+	if cfg.SHA256 != "" {
 		got := hex.EncodeToString(hasher.Sum(nil))
-		if !strings.EqualFold(got, expectedSHA256) {
-			return fmt.Errorf("SHA256 mismatch: got %s, want %s", got, expectedSHA256)
+		if !strings.EqualFold(got, cfg.SHA256) {
+			return fmt.Errorf("SHA256 mismatch: got %s, want %s", got, cfg.SHA256)
 		}
 	}
 
 	switch {
-	case strings.HasSuffix(sourceURL, ".tar.gz") || strings.HasSuffix(sourceURL, ".tgz"):
-		return extractFromTarGz(tmpPath, installAs, destPath)
-	case strings.HasSuffix(sourceURL, ".zip"):
-		return extractFromZip(tmpPath, installAs, destPath)
+	case strings.HasSuffix(cfg.Source, ".tar.gz") || strings.HasSuffix(cfg.Source, ".tgz"):
+		return extractFromTarGz(tmpPath, cfg.archiveBinary(installAs), destPath)
+	case strings.HasSuffix(cfg.Source, ".zip"):
+		return extractFromZip(tmpPath, cfg.archiveBinary(installAs), destPath)
 	default:
 		return installBinary(tmpPath, destPath)
 	}
 }
 
-// extractFromTarGz finds the entry whose base name matches installAs and
+// extractFromTarGz finds the entry whose base name matches binaryName and
 // extracts it to destPath.
-func extractFromTarGz(archivePath, installAs, destPath string) error {
+func extractFromTarGz(archivePath, binaryName, destPath string) error {
 	f, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -244,7 +245,7 @@ func extractFromTarGz(archivePath, installAs, destPath string) error {
 	}
 	defer gz.Close()
 
-	target := strings.ToLower(strings.TrimSuffix(installAs, ".exe"))
+	target := strings.ToLower(strings.TrimSuffix(binaryName, ".exe"))
 	tr := tar.NewReader(gz)
 
 	for {
@@ -263,18 +264,18 @@ func extractFromTarGz(archivePath, installAs, destPath string) error {
 			return writeExecutable(tr, destPath)
 		}
 	}
-	return fmt.Errorf("binary %q not found in archive", installAs)
+	return fmt.Errorf("binary %q not found in archive", binaryName)
 }
 
 // extractFromZip finds the matching entry and extracts it to destPath.
-func extractFromZip(archivePath, installAs, destPath string) error {
+func extractFromZip(archivePath, binaryName, destPath string) error {
 	zr, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return fmt.Errorf("not a valid zip file: %w", err)
 	}
 	defer zr.Close()
 
-	target := strings.ToLower(strings.TrimSuffix(installAs, ".exe"))
+	target := strings.ToLower(strings.TrimSuffix(binaryName, ".exe"))
 
 	for _, f := range zr.File {
 		base := strings.ToLower(strings.TrimSuffix(filepath.Base(f.Name), ".exe"))
@@ -287,7 +288,7 @@ func extractFromZip(archivePath, installAs, destPath string) error {
 			return writeExecutable(rc, destPath)
 		}
 	}
-	return fmt.Errorf("binary %q not found in zip archive", installAs)
+	return fmt.Errorf("binary %q not found in zip archive", binaryName)
 }
 
 // installBinary copies src to dest with executable permissions.
