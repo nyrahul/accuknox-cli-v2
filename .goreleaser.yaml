@@ -20,10 +20,7 @@ builds:
       - -trimpath
     hooks:
       pre:
-        - cmd: make prebuild GOOS={{ .Os }} GOARCH={{ .Arch }}
-          filter:
-            exclude:
-              - goos: windows
+        - make prebuild GOOS={{ .Os }} GOARCH={{ .Arch }}
       post:
         - rm -f pkg/vm/rra-agent
 
