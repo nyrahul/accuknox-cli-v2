@@ -61,18 +61,24 @@ func (t *Tool) ResolveForPlatform(goos, goarch string) (*PlatformConfig, string,
 	return &cfg, installAs, nil
 }
 
-// EnsureInstalled checks whether the tool binary is present and downloads it
-// if not. Lookup order:
-//  1. Directory containing the knoxctl executable (bundled in release packages)
-//  2. ~/.accuknox-config/tools/ (previously auto-downloaded)
-//  3. Download to ~/.accuknox-config/tools/
+// EnsureInstalled returns a path to the tool binary, extracting or downloading
+// it as needed. Lookup order:
+//  1. Embedded in the knoxctl binary (via //go:embed bins) → extract to versioned cache
+//  2. Next to the knoxctl executable (manual side-by-side deployment)
+//  3. ~/.accuknox-config/tools/ (previously downloaded at runtime)
+//  4. Download from source URL to ~/.accuknox-config/tools/
 func (t *Tool) EnsureInstalled() (string, error) {
 	cfg, installAs, err := t.ResolveForPlatform(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return "", err
 	}
 
-	// 1. Check next to the running binary (release package layout).
+	// 1. Extract from the binary embedded at build time.
+	if path, err := t.extractEmbedded(installAs); err == nil {
+		return path, nil
+	}
+
+	// 2. Check next to the running binary.
 	if execPath, err := os.Executable(); err == nil {
 		candidate := filepath.Join(filepath.Dir(execPath), installAs)
 		if _, err := os.Stat(candidate); err == nil {
@@ -80,14 +86,14 @@ func (t *Tool) EnsureInstalled() (string, error) {
 		}
 	}
 
-	// 2. Check the user's download cache.
+	// 3. Check the user's runtime download cache.
 	cacheDir := installDir()
 	cached := filepath.Join(cacheDir, installAs)
 	if _, err := os.Stat(cached); err == nil {
 		return cached, nil
 	}
 
-	// 3. Download.
+	// 4. Download.
 	fmt.Printf("Downloading %s %s...\n", t.Name, t.Version)
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create install dir: %w", err)
@@ -97,6 +103,42 @@ func (t *Tool) EnsureInstalled() (string, error) {
 	}
 	fmt.Printf("Installed %s to %s\n", t.Name, cached)
 	return cached, nil
+}
+
+// extractEmbedded reads the tool binary from binsFS (embedded at build time),
+// writes it to a versioned cache directory, and returns its path.
+// The cache is keyed by tool version so a new knoxctl release always extracts
+// a fresh copy instead of reusing a stale one.
+// Returns an error if the binary is not embedded (dev builds, unavailable platform).
+func (t *Tool) extractEmbedded(installAs string) (string, error) {
+	data, err := binsFS.ReadFile("bins/" + installAs)
+	if err != nil || len(data) == 0 {
+		return "", fmt.Errorf("binary not embedded")
+	}
+
+	extractDir := filepath.Join(embeddedExtractDir(), t.Version)
+	if err := os.MkdirAll(extractDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create extract dir: %w", err)
+	}
+
+	dest := filepath.Join(extractDir, installAs)
+	if _, err := os.Stat(dest); err == nil {
+		return dest, nil // already extracted from this version
+	}
+
+	if err := os.WriteFile(dest, data, 0o755); err != nil { // #nosec G306
+		return "", fmt.Errorf("failed to extract embedded %s: %w", installAs, err)
+	}
+	return dest, nil
+}
+
+// embeddedExtractDir returns the base directory for extracted embedded binaries.
+func embeddedExtractDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), ".accuknox-config", "tools", "embedded")
+	}
+	return filepath.Join(home, ".accuknox-config", "tools", "embedded")
 }
 
 // buildCacheDir returns the persistent cache directory for build-time tool downloads,

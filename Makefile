@@ -27,6 +27,8 @@ RRADIR := $(CURDIR)/pkg/vm
 prebuild:
 	git submodule update --init --recursive
 	cd $(RRADIR)/RRA; go mod tidy; CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s ${GIT_INFO}" -o $(RRADIR)/rra-agent
+	cp $(CURDIR)/tools.yaml $(CURDIR)/pkg/tools/tools.yaml
+	touch $(CURDIR)/pkg/tools/bins/placeholder
 
 ifeq (, $(shell which govvv))
 $(shell go install github.com/ahmetb/govvv@latest)
