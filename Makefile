@@ -6,11 +6,27 @@ GOOS   ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 export GOEXPERIMENT=jsonv2
 
+# Required so Go bypasses the public module proxy for private accuknox packages.
+export GOPRIVATE = github.com/accuknox/*
+
+# On local dev machines (CI sets CI=true automatically), rewrite HTTPS GitHub
+# URLs to SSH so private repos are fetched using SSH keys instead of prompting
+# for a username/password. CI workflows configure HTTPS token auth separately
+# via a global git config step, so we skip this there.
+ifndef CI
+export GIT_CONFIG_COUNT = 1
+export GIT_CONFIG_KEY_0 = url.git@github.com:.insteadOf
+export GIT_CONFIG_VALUE_0 = https://github.com/
+endif
+
 # Compile RRA submodule beforehand for embeding in Knoxctl
 RRADIR := $(CURDIR)/pkg/vm
+
+.DEFAULT_GOAL := build
+
 prebuild:
 	git submodule update --init --recursive
-	cd $(RRADIR)/RRA; go mod tidy; CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s ${GIT_INFO}" -o $(RRADIR)/rra
+	cd $(RRADIR)/RRA; go mod tidy; CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s ${GIT_INFO}" -o $(RRADIR)/rra-agent
 
 ifeq (, $(shell which govvv))
 $(shell go install github.com/ahmetb/govvv@latest)

@@ -5,9 +5,13 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -16,9 +20,12 @@ builds:
       - -trimpath
     hooks:
       pre:
-        - make prebuild GOOS={{ .Os }} GOARCH={{ .Arch }}
+        - cmd: make prebuild GOOS={{ .Os }} GOARCH={{ .Arch }}
+          filter:
+            exclude:
+              - goos: windows
       post:
-        - rm -rf pkg/vm/rra
+        - rm -f pkg/vm/rra-agent
 
 signs:
   - cmd: cosign

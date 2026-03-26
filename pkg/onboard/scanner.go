@@ -224,7 +224,7 @@ func (cc *ClusterConfig) InstallRRA() error {
 			err := cc.installAgent(agent.AgentName, packageMeta[0], packageMeta[1])
 			if err != nil {
 				fmt.Println(color.RedString("RRA Installation failed!! Cleaning up downloaded asset..."))
-				Deletedir(cm.DownloadDir)
+				Deletedir(cm.GetDownloadDir())
 				return err
 			}
 			if agent.AgentName == cm.SpireAgent {
@@ -249,7 +249,7 @@ func (cc *ClusterConfig) InstallRRA() error {
 			}
 		}
 		fmt.Println(color.BlueString("\nCleaning up downloaded assets..."))
-		Deletedir(cm.DownloadDir)
+		Deletedir(cm.GetDownloadDir())
 	}
 	return nil
 }

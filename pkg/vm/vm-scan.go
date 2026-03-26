@@ -1,3 +1,5 @@
+//go:build !windows
+
 package vm
 
 import (
@@ -11,9 +13,9 @@ import (
 	"github.com/accuknox/accuknox-cli-v2/pkg/logger"
 )
 
-//go:embed rra
+//go:embed rra-agent
 var rraBinary []byte
-var rra string = "rra"
+var rra string = "rra-agent"
 
 var fileName = "accuknox-%s_%s_result.json"
 

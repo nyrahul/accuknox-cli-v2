@@ -22,7 +22,6 @@ import (
 	"github.com/Masterminds/sprig"
 	cm "github.com/accuknox/accuknox-cli-v2/pkg/common"
 	"github.com/accuknox/accuknox-cli-v2/pkg/logger"
-	"github.com/coreos/go-systemd/v22/dbus"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/mod/semver"
 	"oras.land/oras-go/v2"
@@ -453,7 +452,7 @@ func (cc *ClusterConfig) placeServiceFiles() error {
 func (cc *ClusterConfig) DownloadAgent(agentName, agentRepo, agentTag, downloadDir string) (string, error) {
 
 	if downloadDir == "" {
-		downloadDir = cm.DownloadDir
+		downloadDir = cm.GetDownloadDir()
 	}
 
 	if err := os.MkdirAll(downloadDir, 0750); err != nil {
@@ -881,7 +880,7 @@ func InstallAgent(agentName, agentRepo, agentTag string) error {
 
 // downloadAgent downloads agents as OCI artifacts
 func DownloadAgent(agentName, agentRepo, agentTag string) (string, error) {
-	fs, err := file.New(cm.DownloadDir)
+	fs, err := file.New(cm.GetDownloadDir())
 	if err != nil {
 		return "", err
 	}
@@ -902,7 +901,7 @@ func DownloadAgent(agentName, agentRepo, agentTag string) (string, error) {
 		return "", err
 	}
 
-	filepath := path.Join(cm.DownloadDir, agentName+"_"+agentTag+".tar.gz")
+	filepath := path.Join(cm.GetDownloadDir(), agentName+"_"+agentTag+".tar.gz")
 	return filepath, nil
 }
 
