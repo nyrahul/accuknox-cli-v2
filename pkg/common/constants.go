@@ -1,6 +1,7 @@
 package common
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -81,7 +82,8 @@ const (
 	MinDockerComposeVersion           = "v1.27.0"
 	MinDockerComposeWithWaitSupported = "v2.17.0"
 
-	DownloadDir string = "/tmp/accuknox-downloads/"
+	// DownloadDir is now a function to support cross-platform temp directories.
+	// Use GetDownloadDir() instead.
 
 	// agents names
 	KubeArmor            string = "kubearmor"
@@ -141,6 +143,11 @@ const (
 	KnoxctlConfigFilename = "knoxctl-config.json"
 	KnoxctlLogFilename    = "knoxctl.log"
 )
+
+// GetDownloadDir returns the platform-appropriate directory for downloading agents.
+func GetDownloadDir() string {
+	return filepath.Join(os.TempDir(), "accuknox-downloads") + string(os.PathSeparator)
+}
 
 var (
 	MatchLabels = map[string]string{"app": "discovery-engine"}

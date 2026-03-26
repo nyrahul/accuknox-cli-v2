@@ -13,7 +13,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/accuknox/accuknox-cli-v2/pkg/common"
@@ -147,7 +146,8 @@ func (s *Scan) Start() error {
 	defer cancel()
 
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGABRT, syscall.SIGKILL)
+	sigs := append([]os.Signal{os.Interrupt}, extraSignals...)
+	signal.Notify(signalChan, sigs...)
 
 	go func() {
 		<-signalChan

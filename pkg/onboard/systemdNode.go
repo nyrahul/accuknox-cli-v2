@@ -28,7 +28,7 @@ func (jc *JoinConfig) JoinSystemdNode() error {
 	err := jc.SystemdInstall()
 	if err != nil {
 		logger.Error("Installation failed!! Error: %s.\nCleaning up downloaded assets...", err.Error())
-		Deletedir(cm.DownloadDir)
+		Deletedir(cm.GetDownloadDir())
 		DeboardSystemd(NodeType_WorkerNode) // #nosec G104
 		return err
 	}
@@ -163,6 +163,6 @@ func (jc *JoinConfig) JoinSystemdNode() error {
 	logger.PrintSuccess("\nAll services enabled successfully.")
 
 	logger.Info1("\nCleaning up downloaded assets...")
-	Deletedir(cm.DownloadDir)
+	Deletedir(cm.GetDownloadDir())
 	return nil
 }

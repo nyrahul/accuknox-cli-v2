@@ -2,13 +2,11 @@ package deboard
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 
 	cm "github.com/accuknox/accuknox-cli-v2/pkg/common"
 	"github.com/accuknox/accuknox-cli-v2/pkg/logger"
@@ -307,7 +305,7 @@ func deleteContainer(serviceName string) error {
 
 	// delete configdir if it is empty(for cases if only RRA is installed)
 	if err = os.Remove(configPath); err != nil {
-		if !os.IsNotExist(err) && !errors.Is(err, syscall.ENOTEMPTY) && !errors.Is(err, syscall.EEXIST) {
+		if !os.IsNotExist(err) && !isDirNotEmpty(err) {
 			return err
 		}
 	}

@@ -116,7 +116,7 @@ func (ic *InitConfig) InitializeControlPlaneSD() error {
 	if err != nil {
 		logger.Error("Installation failed!! Cleaning up downloaded assets...")
 		// ignoring G104 - can't send nil in installation failed case
-		Deletedir(cm.DownloadDir)
+		Deletedir(cm.GetDownloadDir())
 		DeboardSystemd(NodeType_ControlPlane) // #nosec G104
 		return err
 	}
@@ -205,7 +205,7 @@ func (ic *InitConfig) InitializeControlPlaneSD() error {
 
 	// Clean Up
 	logger.Info1("\nCleaning up downloaded assets...")
-	Deletedir(cm.DownloadDir)
+	Deletedir(cm.GetDownloadDir())
 	return nil
 }
 

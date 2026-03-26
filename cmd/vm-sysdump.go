@@ -44,7 +44,7 @@ var sysdumpVMCmd = &cobra.Command{
 		}
 
 		// create directory
-		tmpDirRoot := "/tmp"
+		tmpDirRoot := os.TempDir()
 		sysdumpDir := fmt.Sprintf(fmt.Sprintf("knoxctl-sysdump-%s-", hostname))
 		tmpDir, err := os.MkdirTemp(tmpDirRoot, sysdumpDir)
 		if err != nil {

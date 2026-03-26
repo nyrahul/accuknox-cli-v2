@@ -1,10 +1,8 @@
 package imagescan
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/accuknox/kubeshield/api/v1beta1"
 	kubesheildDiscovery "github.com/accuknox/kubeshield/pkg/discovery"
@@ -23,7 +21,7 @@ func DiscoverAndScan(conf kubesheildScanner.ScanConfig, hostName, runtime string
 
 	defer func() {
 		// Ignoring EINVAL errors based on https://github.com/uber-go/zap/issues/328#issuecomment-284337436
-		if err := zapLogger.Sync(); err != nil && !errors.Is(err, syscall.EINVAL) {
+		if err := zapLogger.Sync(); err != nil && !isZapSyncError(err) {
 			fmt.Printf("error: %v\n", err)
 		}
 	}()
