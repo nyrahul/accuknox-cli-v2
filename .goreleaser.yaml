@@ -1,3 +1,5 @@
+version: 2
+
 project_name: knoxctl
 
 builds:
@@ -21,8 +23,16 @@ builds:
     hooks:
       pre:
         - make prebuild GOOS={{ .Os }} GOARCH={{ .Arch }}
+        - go run ./scripts/download-tools --os {{ .Os }} --arch {{ .Arch }} --output dist/tools/{{ .Os }}_{{ .Arch }}
       post:
         - rm -f pkg/vm/rra-agent
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: "dist/tools/{{ .Os }}_{{ .Arch }}/*"
+        dst: "."
+        strip_parent: true
 
 signs:
   - cmd: cosign
