@@ -103,4 +103,4 @@ ifeq (, $(shell which goreleaser))
 	go install github.com/goreleaser/goreleaser@latest ;\
 	}
 endif
-	cd $(CURDIR); VERSION=$(shell git describe --tags --always --dirty) goreleaser release --clean --skip=publish --skip=sign --skip=validate --snapshot
+	cd $(CURDIR); VERSION=$(shell git describe --tags --always --dirty) goreleaser release --clean --skip=publish --skip=sign --skip=validate --snapshot --parallelism 1
