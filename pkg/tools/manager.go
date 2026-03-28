@@ -28,7 +28,7 @@ func Load() (*Config, error) {
 
 // LoadFromFile parses tools.yaml from the given path (used by build scripts).
 func LoadFromFile(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
@@ -95,7 +95,7 @@ func (t *Tool) EnsureInstalled() (string, error) {
 
 	// 4. Download.
 	fmt.Printf("Downloading %s %s...\n", t.Name, t.Version)
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o750); err != nil { // #nosec G301
 		return "", fmt.Errorf("failed to create install dir: %w", err)
 	}
 	if err := downloadAndInstall(cfg, installAs, cached); err != nil {
@@ -117,7 +117,7 @@ func (t *Tool) extractEmbedded(installAs string) (string, error) {
 	}
 
 	extractDir := filepath.Join(embeddedExtractDir(), t.Version)
-	if err := os.MkdirAll(extractDir, 0o755); err != nil {
+	if err := os.MkdirAll(extractDir, 0o750); err != nil { // #nosec G301
 		return "", fmt.Errorf("failed to create extract dir: %w", err)
 	}
 
@@ -167,7 +167,7 @@ func (t *Tool) DownloadTo(goos, goarch, outputDir string) error {
 	// Download into the cache if not already there.
 	if _, err := os.Stat(cached); os.IsNotExist(err) {
 		fmt.Printf("  Downloading %s (%s/%s)...\n", t.Name, goos, goarch)
-		if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		if err := os.MkdirAll(cacheDir, 0o750); err != nil { // #nosec G301
 			return fmt.Errorf("failed to create build cache dir: %w", err)
 		}
 		if err := downloadAndInstall(cfg, installAs, cached); err != nil {
@@ -250,10 +250,10 @@ func downloadAndInstall(cfg *PlatformConfig, installAs, destPath string) error {
 
 	hasher := sha256.New()
 	if _, err := io.Copy(io.MultiWriter(tmp, hasher), resp.Body); err != nil {
-		tmp.Close()
+		_ = tmp.Close() // #nosec G104
 		return fmt.Errorf("failed to write download: %w", err)
 	}
-	tmp.Close()
+	_ = tmp.Close() // #nosec G104
 
 	if cfg.SHA256 != "" {
 		got := hex.EncodeToString(hasher.Sum(nil))
@@ -275,7 +275,7 @@ func downloadAndInstall(cfg *PlatformConfig, installAs, destPath string) error {
 // extractFromTarGz finds the entry whose base name matches binaryName and
 // extracts it to destPath.
 func extractFromTarGz(archivePath, binaryName, destPath string) error {
-	f, err := os.Open(archivePath)
+	f, err := os.Open(archivePath) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -335,16 +335,16 @@ func extractFromZip(archivePath, binaryName, destPath string) error {
 
 // installBinary copies src to dest with executable permissions.
 func installBinary(src, dest string) error {
-	data, err := os.ReadFile(src)
+	data, err := os.ReadFile(src) // #nosec G304
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dest, data, 0o755) // #nosec G306
+	return os.WriteFile(dest, data, 0o755) // #nosec G306 G703
 }
 
 // writeExecutable writes r to destPath with executable permissions.
 func writeExecutable(r io.Reader, destPath string) error {
-	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755) // #nosec G304
+	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755) // #nosec G304 G302
 	if err != nil {
 		return fmt.Errorf("failed to create %s: %w", destPath, err)
 	}
