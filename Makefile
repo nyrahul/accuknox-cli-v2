@@ -27,7 +27,11 @@ RRADIR := $(CURDIR)/pkg/vm
 prebuild:
 	git submodule update --init --recursive
 	cd $(RRADIR)/RRA; go mod tidy; CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s ${GIT_INFO}" -o $(RRADIR)/rra-agent
-	@[ -f $(CURDIR)/tools.yaml ] && cp $(CURDIR)/tools.yaml $(CURDIR)/pkg/tools/tools.yaml || true
+	@if [ -f $(CURDIR)/tools.yaml ]; then \
+		cp $(CURDIR)/tools.yaml $(CURDIR)/pkg/tools/tools.yaml; \
+	elif [ ! -f $(CURDIR)/pkg/tools/tools.yaml ]; then \
+		echo "tools: []" > $(CURDIR)/pkg/tools/tools.yaml; \
+	fi
 	touch $(CURDIR)/pkg/tools/bins/placeholder
 
 ifeq (, $(shell which govvv))
