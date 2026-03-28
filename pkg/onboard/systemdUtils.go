@@ -713,7 +713,6 @@ func (cc *ClusterConfig) SystemdInstall() error {
 	return nil
 }
 
-
 func Deletedir(dirName string) {
 	//	Clean Up
 	err := os.RemoveAll(dirName)
@@ -992,4 +991,3 @@ func ConvertCronToSystemd(schedule string) (string, error) {
 
 	return finalSchedule, nil
 }
-
