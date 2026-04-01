@@ -65,15 +65,6 @@ func (g *Graph) AddNode(node *Node, parentHash string) {
 	}
 }
 
-// GetNode returns a node from the graph
-func (g *Graph) GetNode(hash string) *Node {
-	if node, exists := g.Nodes[hash]; exists {
-		return node
-	}
-
-	return nil
-}
-
 // CancelOutChanges cancels out changes that are both insertions and removals
 func (g *Graph) cancelOutChanges(rootHash string) {
 	dfsResult := g.DepthFirstSearch(rootHash)
@@ -199,25 +190,6 @@ func (g Graph) writeLevel4NodesToJSONFile(outputFilename, rootHash string) error
 			if err := encoder.Encode(node); err != nil {
 				fmt.Printf("Error marshaling node to JSON: %s\n", err)
 			}
-		}
-	}
-
-	return nil
-}
-
-func (g Graph) WriteFilteredNodesTOJSONFile(nodes []*Node) error {
-	file, err := common.CleanAndCreate("knoxctl_out/reports/filtered_nodes.json")
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-
-	for _, nodes := range nodes {
-		if err := encoder.Encode(nodes); err != nil {
-			fmt.Printf("Error marshaling node to JSON: %s\n", err)
 		}
 	}
 

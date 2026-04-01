@@ -63,13 +63,6 @@ func (pr *PolicyReader) ReadPolicies() error {
 	return nil
 }
 
-func (pr *PolicyReader) GetPolicy(name string) *KubeArmorPolicy {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
-
-	return pr.Policies[name]
-}
-
 func (pr *PolicyReader) GetOptimizedPolicyYAML(name string) (string, error) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
@@ -80,15 +73,4 @@ func (pr *PolicyReader) GetOptimizedPolicyYAML(name string) (string, error) {
 	}
 
 	return policy.OptimizedYAML()
-}
-
-func (pr *PolicyReader) PrintPolicyMap() {
-	for name, policy := range pr.Policies {
-		optimizedYAML, err := policy.OptimizedYAML()
-		if err != nil {
-			fmt.Printf("\nName: %s\nError generating optimized YAML: %v\n", name, err)
-		} else {
-			fmt.Printf("\nName: %s\nPolicy:\n%s\n", name, optimizedYAML)
-		}
-	}
 }

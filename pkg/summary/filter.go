@@ -94,13 +94,6 @@ func matches(event *summary.ProcessFileEvent, opts Options) bool {
 	return false
 }
 
-func labelsMatch(workloadEvents *summary.WorkloadEvents, opts Options) bool {
-	if len(opts.LabelsRegex) > 0 && matchesRegex(opts.LabelsRegex, workloadEvents.Labels) {
-		return true
-	}
-	return false
-}
-
 func matchesNamespace(name string, opts Options) bool {
 	if stringInSlice(name, opts.Namespace) || matchesRegex(opts.NamespaceRegex, name) {
 		return true

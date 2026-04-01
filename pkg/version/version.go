@@ -1,7 +1,6 @@
 package version
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/accuknox/accuknox-cli-v2/pkg/onboard"
 	"github.com/kubearmor/kubearmor-client/k8s"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -62,20 +60,6 @@ func PrintVersion(c *k8s.Client, o Option) error {
 		fmt.Printf("kubearmor image (running) version: [%s]\n", kubearmorVersion)
 	*/
 	return nil
-}
-
-func getKubeArmorVersion(c *k8s.Client) (string, error) {
-	deployments, err := c.K8sClientset.AppsV1().Deployments("").List(context.Background(), metav1.ListOptions{LabelSelector: "kubearmor-app=kubearmor"})
-	if err != nil {
-		return "", err
-	}
-
-	if len(deployments.Items) > 0 {
-		image := deployments.Items[0].Spec.Template.Spec.Containers[0].Image
-		return image, nil
-	}
-
-	return "", nil
 }
 
 func fetchReleaseVersion() (string, error) {

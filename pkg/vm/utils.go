@@ -175,18 +175,6 @@ func GetKernelVersion() (string, error) {
 	return info.KernelVersion, nil
 }
 
-func charsToString(ca [65]int8) string {
-	s := make([]byte, 0, len(ca))
-	for _, v := range ca {
-		if v == 0 {
-			break
-		}
-		// #nosec G115 -- unused function
-		s = append(s, byte(v))
-	}
-	return string(s)
-}
-
 func kubeArmorCompatibility() *NodeInfo {
 	// get enforcer
 	var err error

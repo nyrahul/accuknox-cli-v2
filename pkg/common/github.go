@@ -2,8 +2,6 @@ package common
 
 import (
 	"context"
-	"errors"
-	"net/http"
 
 	"github.com/google/go-github/github"
 )
@@ -24,28 +22,4 @@ func GetLatestRelease(client *github.Client, ctx context.Context) (*github.Repos
 	}
 
 	return latestRelease, nil
-}
-
-// GetLatestVersion returns the latest version from the GitHub API
-func GetLatestVersion(client *github.Client, ctx context.Context) (string, error) {
-	latestRelease, err := GetLatestRelease(client, ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return *latestRelease.TagName, nil
-}
-
-func checkGithubHealth() error {
-	resp, err := http.Get("https://api.github.com")
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return errors.New("github api is not healthy, please check github status at https://www.githubstatus.com/")
-	}
-
-	return nil
 }

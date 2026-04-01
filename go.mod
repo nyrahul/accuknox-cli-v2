@@ -24,8 +24,6 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/accuknox/dev2/api v0.0.0-20250312100155-99ada31827b0
 	github.com/accuknox/dev2/common v0.0.0-20250312100155-99ada31827b0
-	github.com/accuknox/dev2/discover v0.0.0-20231026051927-56fe5412ae0d
-	github.com/accuknox/dev2/hardening v0.0.0-20260227064851-38c0f45f90a0
 	github.com/accuknox/dev2/sumengine v0.0.0-20250109055732-04767b7ac965
 	github.com/accuknox/kubeshield v0.3.11
 	github.com/clarketm/json v1.17.1
@@ -38,7 +36,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/itchyny/gojq v0.12.17
-	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/joho/Godotenv v1.3.0
 	github.com/json-iterator/go v1.1.12
 	github.com/kubearmor/KubeArmor/KubeArmor v0.0.0-20250701060635-600e11526ec1
@@ -457,6 +454,7 @@ require (
 	github.com/nozzle/throttler v0.0.0-20180817012639-2ea982251481 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/nwaples/rardecode/v2 v2.2.0 // indirect
+	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect

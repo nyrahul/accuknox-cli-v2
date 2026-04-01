@@ -69,18 +69,6 @@ func (sg *Segregate) SegregateLogs(logs *kaproto.Log) {
 	}
 }
 
-func (sg *Segregate) PrintSegregatedDataJSON() (string, error) {
-	sg.data.mu.RLock()
-	defer sg.data.mu.RUnlock()
-
-	jsonData, err := json.MarshalIndent(sg.data, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("error marshaling segregated data to JSON: %v", err)
-	}
-
-	return string(jsonData), nil
-}
-
 func (sg *Segregate) SaveSegregatedDataToFile(filename string) error {
 	sg.data.mu.RLock()
 	defer sg.data.mu.RUnlock()

@@ -12,7 +12,6 @@ import (
 	"maps"
 	"net/http"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"slices"
@@ -24,9 +23,7 @@ import (
 	"github.com/accuknox/accuknox-cli-v2/pkg/logger"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/mod/semver"
-	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
-	"oras.land/oras-go/v2/content/file"
 	"oras.land/oras-go/v2/registry/remote"
 )
 
@@ -862,78 +859,6 @@ func CheckInstalledSystemdServices() ([]string, error) {
 	}
 
 	return installedAgents, nil
-}
-
-func InstallAgent(agentName, agentRepo, agentTag string) error {
-	fileName, err := DownloadAgent(agentName, agentRepo, agentTag)
-	if err != nil {
-		return err
-	}
-
-	err = ExtractAgent(fileName)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// downloadAgent downloads agents as OCI artifacts
-func DownloadAgent(agentName, agentRepo, agentTag string) (string, error) {
-	fs, err := file.New(cm.GetDownloadDir())
-	if err != nil {
-		return "", err
-	}
-	defer fs.Close()
-
-	// 1. Connect to a remote repository
-	ctx := context.Background()
-	repo, err := remote.NewRepository(agentRepo)
-	if err != nil {
-		return "", err
-	}
-
-	// repo.Client = cc.ORASClient
-	// repo.PlainHTTP = cc.PlainHTTP
-
-	_, err = oras.Copy(ctx, repo, agentTag, fs, agentTag, oras.DefaultCopyOptions)
-	if err != nil {
-		return "", err
-	}
-
-	filepath := path.Join(cm.GetDownloadDir(), agentName+"_"+agentTag+".tar.gz")
-	return filepath, nil
-}
-
-// wraps around journalctl
-// could've used bindings from systemd-go but they require CGO, adding which
-// would make it impossible to run knoxctl in any environment
-func runJournalCTLCommand(args ...string) ([]byte, error) {
-	// #nosec G204 -- journalctl args are internally controlled and no shell is used
-	journalCTLCommand := exec.Command("journalctl", args...)
-
-	data, err := journalCTLCommand.CombinedOutput()
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func DumpSystemdLogs(sysdumpDir string, services []string) {
-	for _, service := range services {
-		logs, err := runJournalCTLCommand("--no-pager", "-u", service)
-		if err != nil {
-			logger.Warn("Error while getting logs from %s: %s", service, err.Error())
-		} else {
-			filename := filepath.Join(sysdumpDir, service+".log")
-			err := os.WriteFile(filename, logs, 0o644) // #nosec G306 need perms for archiving
-			if err != nil {
-				logger.Warn("Error while writing logs to file %s: %s", filename, err.Error())
-				continue
-			}
-		}
-	}
 }
 
 // takes in full paths, reads files from source recursively and dumps them

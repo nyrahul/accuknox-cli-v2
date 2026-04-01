@@ -56,11 +56,3 @@ func SetConfig(cwpp, cspm, token, tenant_id string) {
 		Cfg.TENANT_ID = tenant_id
 	}
 }
-
-func GetDefaultConfigFile() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return DEFAULT_CONFIG_FILE_NAME
-	}
-	return fmt.Sprintf("%s/%s", home, DEFAULT_CONFIG_FILE_NAME)
-}

@@ -4,12 +4,9 @@ import (
 	"context"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"golang.org/x/net/publicsuffix"
 )
 
 // GetHostname returns the current hostname of the machine
@@ -22,14 +19,6 @@ func getHostname() (string, error) {
 	hostname = strings.SplitN(hostname, ".", 2)[0]
 
 	return hostname, nil
-}
-
-// isKubeArmorActive checks if KubeArmor is running as systemd service
-func isKubeArmorActive() bool {
-	cmd := exec.Command("systemctl", "is-active", "kubearmor")
-	output, _ := cmd.Output()
-
-	return strings.TrimSpace(string(output)) == "active"
 }
 
 // getActualProcessName name gets the name of the process given the absolute path
@@ -75,24 +64,6 @@ func performDNSLookup(ip string) string {
 	}
 
 	return strings.TrimSuffix(names[0], ".")
-}
-
-// extractMainDomain tries to get TLD+1 name of a given domain
-func extractMainDomain(hostname string) string {
-	hostname = strings.TrimSuffix(hostname, ".")
-
-	parts := strings.Split(hostname, ".")
-
-	if len(parts) <= 2 {
-		return hostname
-	}
-
-	domain, err := publicsuffix.EffectiveTLDPlusOne(hostname)
-	if err != nil {
-		return strings.Join(parts[len(parts)-2:], ".")
-	}
-
-	return domain
 }
 
 // isValidIPv4 checks if the strings represents a valid IP address

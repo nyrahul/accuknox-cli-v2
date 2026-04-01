@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 
 	"golang.org/x/term"
 	"oras.land/oras-go/v2/registry/remote"
@@ -103,20 +102,6 @@ func readLine(outWriter io.Writer, prompt string, silent bool) (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
-}
-
-func readSecret() (string, error) {
-	// Prompt for credential
-	secretInput, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return "", err
-	}
-
-	// remove trailing cred
-	secret := strings.TrimSuffix(string(secretInput), "\n")
-	secret = strings.TrimSuffix(secret, "\r")
-
-	return secret, nil
 }
 
 func (lo *LoginOptions) newStore() (credentials.Store, error) {
