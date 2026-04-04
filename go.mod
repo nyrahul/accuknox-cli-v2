@@ -22,16 +22,13 @@ replace (
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
-	github.com/accuknox/dev2/api v0.0.0-20250312100155-99ada31827b0
 	github.com/accuknox/dev2/common v0.0.0-20250312100155-99ada31827b0
 	github.com/accuknox/dev2/sumengine v0.0.0-20250109055732-04767b7ac965
 	github.com/accuknox/kubeshield v0.3.11
-	github.com/clarketm/json v1.17.1
 	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/fatih/color v1.18.0
-	github.com/gdamore/tcell/v2 v2.6.0
 	github.com/go-ping/ping v1.2.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github v17.0.0+incompatible
@@ -50,11 +47,9 @@ require (
 	github.com/pterm/pterm v0.12.82
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/regclient/regclient v0.11.2
-	github.com/rivo/tview v0.0.0-20231115183240-7c9e464bac02
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.34.0
 	github.com/samber/lo v1.52.0
-	github.com/schollz/progressbar/v3 v3.14.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -124,6 +119,7 @@ require (
 	github.com/STARRY-S/zip v0.2.3 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/ZachtimusPrime/Go-Splunk-HTTP/splunk/v2 v2.0.2 // indirect
+	github.com/accuknox/dev2/api v0.0.0-20250312100155-99ada31827b0 // indirect
 	github.com/accuknox/go-spiffe/v2 v2.2.0 // indirect
 	github.com/accuknox/kmux v0.0.0-20251211070044-f08f2bee3446 // indirect
 	github.com/accuknox/knox-gateway v0.10.0 // indirect
@@ -208,6 +204,7 @@ require (
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cheggaaa/pb/v3 v3.1.7 // indirect
+	github.com/clarketm/json v1.17.1 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cncf/xds/go v0.0.0-20251022180443-0feb69152e9f // indirect
 	github.com/containerd/cgroups/v3 v3.1.2 // indirect
@@ -259,7 +256,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
-	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.4 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
@@ -417,7 +413,6 @@ require (
 	github.com/mikelolasagasti/xz v1.0.1 // indirect
 	github.com/minio/minlz v1.0.1 // indirect
 	github.com/mitchellh/cli v1.1.5 // indirect
-	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
