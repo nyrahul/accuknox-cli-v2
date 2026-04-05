@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>knoxctl · AccuKnox</title>
+<style>
+/* ── CSS Variables ─────────────────────────────────────────────────────────── */
+:root {
+  --brand:         #0056B8;
+  --brand-dark:    #003E8A;
+  --brand-light:   #EBF3FF;
+  --sidebar-bg:    #131D30;
+  --sidebar-hover: #1E2D48;
+  --sidebar-act:   #0056B8;
+  --sidebar-txt:   #A9B9D0;
+  --sidebar-head:  #6B7F9A;
+  --header-bg:     #FFFFFF;
+  --bg:            #F0F4FA;
+  --card:          #FFFFFF;
+  --text:          #0F1A2E;
+  --text-muted:    #5A6A82;
+  --border:        #D8E4F0;
+  --input-bg:      #FFFFFF;
+  --shadow:        0 1px 4px rgba(0,0,0,.08);
+  --shadow-md:     0 4px 16px rgba(0,0,0,.10);
+  --radius:        10px;
+  --success:       #10B981;
+  --error:         #EF4444;
+  --warn:          #F59E0B;
+  --info:          #3B82F6;
+  --prog-track:    #D8E4F0;
+  --prog-fill:     #0056B8;
+  --json-bg:       #F8FAFC;
+  --json-border:   #D0DFF0;
+}
+[data-theme=dark] {
+  --header-bg:   #1A2438;
+  --bg:          #0D1626;
+  --card:        #1A2438;
+  --text:        #DCE8F5;
+  --text-muted:  #7A90AB;
+  --border:      #263A56;
+  --input-bg:    #162032;
+  --shadow:      0 1px 4px rgba(0,0,0,.30);
+  --shadow-md:   0 4px 16px rgba(0,0,0,.40);
+  --prog-track:  #263A56;
+  --json-bg:     #111C2D;
+  --json-border: #1E3050;
+}
+
+/* ── Reset & Base ──────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:var(--text);background:var(--bg);transition:background .2s,color .2s}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;font-size:14px}
+pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+#app{display:grid;grid-template-columns:240px 1fr;grid-template-rows:56px 1fr;height:100vh;overflow:hidden}
+#header{grid-column:1/-1;display:flex;align-items:center;padding:0 20px;background:var(--header-bg);border-bottom:1px solid var(--border);box-shadow:var(--shadow);z-index:10;gap:12px}
+#sidebar{grid-row:2;background:var(--sidebar-bg);overflow-y:auto;display:flex;flex-direction:column}
+#main{grid-row:2;overflow-y:auto;padding:28px 32px}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.h-logo{display:flex;align-items:center}
+.h-title{flex:1;font-size:15px;font-weight:600;color:var(--text)}
+.h-badge{font-size:11px;padding:3px 8px;border-radius:20px;background:var(--brand-light);color:var(--brand);font-weight:600;border:1px solid var(--brand);opacity:.8}
+.h-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all .15s}
+.h-btn:hover{background:var(--brand-light);color:var(--brand);border-color:var(--brand)}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+.sb-brand{padding:20px 16px 12px;display:flex;align-items:center;gap:10px}
+.sb-brand-name{color:#fff;font-size:15px;font-weight:700;letter-spacing:-.2px}
+.sb-brand-sub{color:var(--sidebar-txt);font-size:11px;margin-top:1px}
+.sb-section{padding:8px 12px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--sidebar-head);margin-top:6px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 14px;margin:1px 8px;border-radius:8px;color:var(--sidebar-txt);font-size:13px;font-weight:500;transition:all .15s;cursor:pointer;user-select:none}
+.sb-item:hover{background:var(--sidebar-hover);color:#fff}
+.sb-item.active{background:var(--sidebar-act);color:#fff}
+.sb-item svg{flex-shrink:0;opacity:.8}
+.sb-item.active svg,.sb-item:hover svg{opacity:1}
+.sb-sub{padding-left:30px}
+.sb-sub .sb-item{padding:6px 12px;font-size:12.5px}
+.sb-spacer{flex:1}
+.sb-footer{padding:14px 16px;border-top:1px solid rgba(255,255,255,.06);color:var(--sidebar-head);font-size:11px}
+
+/* ── Cards & Sections ──────────────────────────────────────────────────────── */
+.page-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.page-sub{color:var(--text-muted);font-size:13px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-bottom:20px}
+.card-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card-sub{font-size:12.5px;color:var(--text-muted);margin-bottom:18px}
+.section{display:none}
+.section.active{display:block}
+
+/* ── Form Elements ─────────────────────────────────────────────────────────── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid.cols3{grid-template-columns:1fr 1fr 1fr}
+.form-grid.col1{grid-template-columns:1fr}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.span2{grid-column:span 2}
+.field label{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px}
+.field input,.field select,.field textarea{padding:8px 12px;border:1px solid var(--border);border-radius:7px;background:var(--input-bg);color:var(--text);font-size:13.5px;transition:border .15s,box-shadow .15s;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(0,86,184,.12)}
+.field textarea{resize:vertical;min-height:80px}
+.field small{font-size:11px;color:var(--text-muted)}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:8px;font-size:13.5px;font-weight:600;border:none;transition:all .15s}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:var(--brand-dark);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,86,184,.3)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:.5;pointer-events:none}
+.btn-secondary{background:transparent;color:var(--brand);border:1px solid var(--brand)}
+.btn-secondary:hover{background:var(--brand-light)}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:6px 12px;font-size:12.5px}
+.btn-row{display:flex;gap:10px;align-items:center;margin-top:16px}
+
+/* ── Progress ──────────────────────────────────────────────────────────────── */
+.progress-wrap{display:none;margin-top:18px}
+.progress-wrap.show{display:block}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:6px}
+.progress-bar{height:6px;background:var(--prog-track);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:var(--prog-fill);border-radius:3px;transition:width .4s ease;width:0%}
+@keyframes stripe{0%{background-position:0 0}100%{background-position:40px 0}}
+.progress-fill.running{background-image:linear-gradient(45deg,rgba(255,255,255,.2) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.2) 75%,transparent 75%);background-size:40px 40px;animation:stripe 1s linear infinite}
+
+/* ── Output ────────────────────────────────────────────────────────────────── */
+.output-wrap{display:none;margin-top:18px}
+.output-wrap.show{display:block}
+.output-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.output-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
+.output-actions{display:flex;gap:6px}
+.output-box{background:var(--json-bg);border:1px solid var(--json-border);border-radius:8px;padding:14px 16px;overflow:auto;max-height:480px;font-size:12px;line-height:1.65;color:var(--text);white-space:pre-wrap;word-break:break-all}
+.output-log{background:var(--json-bg);border:1px solid var(--json-border);border-radius:8px;padding:12px 14px;max-height:320px;overflow-y:auto;font-size:12px;line-height:1.6;color:var(--text-muted)}
+.output-log .log-line{padding:1px 0}
+.output-log .log-line.err{color:var(--error)}
+
+/* ── Status badge ──────────────────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
+.badge-ok{background:#d1fae5;color:#065f46}
+.badge-err{background:#fee2e2;color:#991b1b}
+.badge-warn{background:#fef3c7;color:#92400e}
+.badge-info{background:var(--brand-light);color:var(--brand)}
+
+/* ── Dashboard Stats ───────────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.stat-value{font-size:28px;font-weight:800;color:var(--brand);margin-bottom:4px}
+.stat-label{font-size:12px;color:var(--text-muted);font-weight:500}
+.stat-icon{float:right;width:40px;height:40px;background:var(--brand-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--brand)}
+
+/* ── Tabs ──────────────────────────────────────────────────────────────────── */
+.tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{padding:8px 16px;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;border:1px solid transparent;border-bottom:none;margin-bottom:-1px;transition:all .15s}
+.tab:hover{color:var(--text);background:var(--bg)}
+.tab.active{color:var(--brand);background:var(--card);border-color:var(--border);border-bottom-color:var(--card)}
+
+/* ── Alert ─────────────────────────────────────────────────────────────────── */
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.alert-info{background:var(--brand-light);color:var(--brand);border:1px solid rgba(0,86,184,.2)}
+.alert-warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.alert-success{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+[data-theme=dark] .alert-info{background:rgba(0,86,184,.15);border-color:rgba(0,86,184,.3)}
+[data-theme=dark] .alert-warn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3)}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header id="header">
+  <div class="h-logo">
+    <img src="/accuknox-logo.png" alt="AccuKnox" style="height:28px;display:block">
+  </div>
+  <div class="h-title" id="pageTitle">Dashboard</div>
+  <span class="h-badge" id="versionBadge">knoxctl</span>
+  <button class="h-btn" id="darkToggle" title="Toggle dark mode" onclick="toggleDark()">
+    <svg id="darkIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  </button>
+</header>
+
+<!-- ── Sidebar ────────────────────────────────────────────────────────────── -->
+<aside id="sidebar">
+  <div class="sb-brand">
+    <div>
+      <div class="sb-brand-name">knoxctl</div>
+      <div class="sb-brand-sub">Security Operations CLI</div>
+    </div>
+  </div>
+
+  <div class="sb-section">Overview</div>
+  <div class="sb-item active" data-section="dashboard" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </div>
+
+  <div class="sb-section">Bill of Materials</div>
+  <div class="sb-item" data-section="sbom" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+    Software BOM
+  </div>
+  <div class="sb-item" data-section="cbom" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="11" width="20" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    Cryptography BOM
+  </div>
+  <div class="sb-item" data-section="aibom" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    AI / ML BOM
+  </div>
+
+  <div class="sb-section">Infrastructure</div>
+  <div class="sb-item" data-section="vm" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+    VM Onboarding
+  </div>
+  <div class="sb-item" data-section="probe" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    Security Probe
+  </div>
+  <div class="sb-item" data-section="imgscan" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9,12 11,14 15,10"/></svg>
+    Container Security
+  </div>
+
+  <div class="sb-spacer"></div>
+  <div class="sb-footer" id="sbFooter">knoxctl · AccuKnox</div>
+</aside>
+
+<!-- ── Main Content ────────────────────────────────────────────────────────── -->
+<main id="main">
+
+  <!-- ── Dashboard ──────────────────────────────────────────────────────── -->
+  <section id="sec-dashboard" class="section active">
+    <div class="page-title">Dashboard</div>
+    <div class="page-sub">Welcome to knoxctl — AccuKnox Security Operations CLI</div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+        </div>
+        <div class="stat-value" id="dash-sbom">—</div>
+        <div class="stat-label">Software BOMs Generated</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="11" width="20" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </div>
+        <div class="stat-value" id="dash-cbom">—</div>
+        <div class="stat-label">Crypto BOMs Generated</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div class="stat-value" id="dash-aibom">—</div>
+        <div class="stat-label">AI/ML BOMs Generated</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="stat-value" id="dash-scan">—</div>
+        <div class="stat-label">Container Scans Run</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" fill="none" stroke="var(--brand)" stroke-width="2" viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+          Quick Actions
+        </div>
+        <div class="card-sub">Jump to a common task</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-secondary" onclick="nav(null,'cbom')">Generate Cryptography BOM from source</button>
+          <button class="btn btn-secondary" onclick="nav(null,'aibom')">Generate AI/ML BOM from HuggingFace</button>
+          <button class="btn btn-secondary" onclick="nav(null,'probe')">Run environment security probe</button>
+          <button class="btn btn-secondary" onclick="nav(null,'imgscan')">Scan container image for vulnerabilities</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" fill="none" stroke="var(--brand)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          About knoxctl
+        </div>
+        <div class="card-sub">Runtime information</div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse">
+          <tr><td style="padding:5px 0;color:var(--text-muted);width:120px">Version</td><td id="about-version" style="font-weight:600">—</td></tr>
+          <tr><td style="padding:5px 0;color:var(--text-muted)">Publisher</td><td style="font-weight:600">AccuKnox</td></tr>
+          <tr><td style="padding:5px 0;color:var(--text-muted)">Interface</td><td style="font-weight:600">Web UI 1.0</td></tr>
+          <tr><td style="padding:5px 0;color:var(--text-muted)">API</td><td><span class="badge badge-ok" id="apiStatus">●  Connected</span></td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Software BOM ────────────────────────────────────────────────────── -->
+  <section id="sec-sbom" class="section">
+    <div class="page-title">Software Bill of Materials</div>
+    <div class="page-sub">Inventory all software components, dependencies, and packages.</div>
+    <div class="alert alert-info">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>Software BOM generation scans the project for all declared software components and their licenses, producing a CycloneDX-compliant SBOM.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Configure SBOM Generation</div>
+      <div class="card-sub">Specify the target to scan</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Source Path</label>
+          <input type="text" id="sbom-path" placeholder="./  (current directory)" value="."/>
+          <small>Directory or file path to scan for software components</small>
+        </div>
+        <div class="field">
+          <label>Output Format</label>
+          <select id="sbom-format">
+            <option value="json">CycloneDX JSON</option>
+            <option value="table">Table Summary</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Project Name</label>
+          <input type="text" id="sbom-name" placeholder="my-project"/>
+        </div>
+        <div class="field">
+          <label>Project Version</label>
+          <input type="text" id="sbom-ver" placeholder="1.0.0"/>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="sbom-btn" onclick="runSBOM()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+          Generate SBOM
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="clearOutput('sbom')">Clear</button>
+      </div>
+      <div class="progress-wrap" id="sbom-prog">
+        <div class="progress-label"><span id="sbom-prog-msg">Initialising…</span><span id="sbom-prog-pct">0%</span></div>
+        <div class="progress-bar"><div class="progress-fill running" id="sbom-prog-fill"></div></div>
+      </div>
+    </div>
+    <div class="output-wrap" id="sbom-out-wrap">
+      <div class="output-header">
+        <div class="output-label">Output <span id="sbom-count" class="badge badge-info" style="margin-left:8px"></span></div>
+        <div class="output-actions">
+          <button class="btn btn-ghost btn-sm" onclick="copyOutput('sbom-out')">Copy</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadOutput('sbom-out','sbom.json')">Download</button>
+        </div>
+      </div>
+      <pre class="output-box" id="sbom-out"></pre>
+    </div>
+  </section>
+
+  <!-- ── Cryptography BOM ────────────────────────────────────────────────── -->
+  <section id="sec-cbom" class="section">
+    <div class="page-title">Cryptography Bill of Materials</div>
+    <div class="page-sub">Detect and inventory cryptographic algorithms, protocols, and certificates.</div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="cbomTab('source',this)">Source Code</div>
+      <div class="tab" onclick="cbomTab('image',this)">Container Image</div>
+    </div>
+
+    <!-- Source tab -->
+    <div id="cbom-source-panel">
+      <div class="card">
+        <div class="card-title">Scan Go Source Code</div>
+        <div class="card-sub">Walks Go source files and identifies all cryptographic imports</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Source Path</label>
+            <input type="text" id="cs-path" placeholder=".  (current directory)" value="."/>
+          </div>
+          <div class="field">
+            <label>Project Name</label>
+            <input type="text" id="cs-name" placeholder="my-project"/>
+          </div>
+          <div class="field">
+            <label>Group / Module</label>
+            <input type="text" id="cs-group" placeholder="com.example"/>
+          </div>
+          <div class="field">
+            <label>Version</label>
+            <input type="text" id="cs-ver" placeholder="1.0.0"/>
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <input type="text" id="cs-desc" placeholder="Short project description"/>
+          </div>
+          <div class="field">
+            <label>License (SPDX)</label>
+            <input type="text" id="cs-license" placeholder="Apache-2.0"/>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="cs-btn" onclick="runCBOMSource()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+            Generate CBOM
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="clearOutput('cbom')">Clear</button>
+        </div>
+        <div class="progress-wrap" id="cbom-prog">
+          <div class="progress-label"><span id="cbom-prog-msg">Initialising…</span><span id="cbom-prog-pct">0%</span></div>
+          <div class="progress-bar"><div class="progress-fill running" id="cbom-prog-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image tab -->
+    <div id="cbom-image-panel" style="display:none">
+      <div class="card">
+        <div class="card-title">Scan Container Image</div>
+        <div class="card-sub">Scans a container image for certificates, keys, and TLS configuration</div>
+        <div class="form-grid">
+          <div class="field span2">
+            <label>Image Reference</label>
+            <input type="text" id="ci-image" placeholder="nginx:latest  or  registry.io/org/app:v1.2"/>
+          </div>
+          <div class="field">
+            <label>Project Name</label>
+            <input type="text" id="ci-name" placeholder="my-app"/>
+          </div>
+          <div class="field">
+            <label>Scanner Plugins</label>
+            <input type="text" id="ci-plugins" placeholder="certificates,keys  (leave blank for all)"/>
+          </div>
+          <div class="field">
+            <label>Exclude Patterns</label>
+            <input type="text" id="ci-ignore" placeholder="*.test  (glob patterns)"/>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="ci-btn" onclick="runCBOMImage()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+            Scan Image
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="clearOutput('cbom')">Clear</button>
+        </div>
+        <div class="progress-wrap" id="cbom-img-prog">
+          <div class="progress-label"><span id="cbom-img-prog-msg">Initialising…</span><span id="cbom-img-prog-pct">0%</span></div>
+          <div class="progress-bar"><div class="progress-fill running" id="cbom-img-prog-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="output-wrap" id="cbom-out-wrap">
+      <div class="output-header">
+        <div class="output-label">CBOM Output <span id="cbom-count" class="badge badge-info" style="margin-left:8px"></span></div>
+        <div class="output-actions">
+          <button class="btn btn-ghost btn-sm" onclick="copyOutput('cbom-out')">Copy</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadOutput('cbom-out','cbom.json')">Download</button>
+        </div>
+      </div>
+      <pre class="output-box" id="cbom-out"></pre>
+    </div>
+  </section>
+
+  <!-- ── AI/ML BOM ───────────────────────────────────────────────────────── -->
+  <section id="sec-aibom" class="section">
+    <div class="page-title">AI / ML Bill of Materials</div>
+    <div class="page-sub">Inventory AI/ML models including architecture, training datasets, performance metrics, and licensing.</div>
+
+    <div class="card">
+      <div class="card-title">Generate AI/ML BOM</div>
+      <div class="card-sub">Fetches model metadata from the model registry and produces a CycloneDX 1.7 AIBOM</div>
+      <div class="form-grid">
+        <div class="field span2">
+          <label>Model Identifier</label>
+          <input type="text" id="ai-model" placeholder="google-bert/bert-base-uncased"/>
+          <small>Format: <em>owner/model-name</em></small>
+        </div>
+        <div class="field">
+          <label>API Token <span style="font-weight:400;text-transform:none">(optional)</span></label>
+          <input type="password" id="ai-token" placeholder="Required for private / gated models"/>
+        </div>
+        <div class="field">
+          <label>Override Name</label>
+          <input type="text" id="ai-name" placeholder="Leave blank to use model ID"/>
+        </div>
+        <div class="field">
+          <label>Override Version</label>
+          <input type="text" id="ai-ver" placeholder="Leave blank for git SHA"/>
+        </div>
+        <div class="field">
+          <label>Manufacturer</label>
+          <input type="text" id="ai-mfg" placeholder="Override manufacturer name"/>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="ai-btn" onclick="runAIBOM()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+          Generate AIBOM
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="clearOutput('aibom')">Clear</button>
+      </div>
+      <div class="progress-wrap" id="aibom-prog">
+        <div class="progress-label"><span id="aibom-prog-msg">Initialising…</span><span id="aibom-prog-pct">0%</span></div>
+        <div class="progress-bar"><div class="progress-fill running" id="aibom-prog-fill"></div></div>
+      </div>
+    </div>
+
+    <div class="output-wrap" id="aibom-out-wrap">
+      <div class="output-header">
+        <div class="output-label">AIBOM Output <span id="aibom-count" class="badge badge-info" style="margin-left:8px"></span></div>
+        <div class="output-actions">
+          <button class="btn btn-ghost btn-sm" onclick="copyOutput('aibom-out')">Copy</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadOutput('aibom-out','aibom.json')">Download</button>
+        </div>
+      </div>
+      <pre class="output-box" id="aibom-out"></pre>
+    </div>
+  </section>
+
+  <!-- ── VM Onboarding ───────────────────────────────────────────────────── -->
+  <section id="sec-vm" class="section">
+    <div class="page-title">VM Onboarding</div>
+    <div class="page-sub">Onboard virtual machines to AccuKnox protection and telemetry.</div>
+    <div class="alert alert-warn">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>VM onboarding requires a running AccuKnox control-plane and valid API credentials.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div class="card">
+        <div class="card-title">Control-Plane Node</div>
+        <div class="card-sub">Onboard the VM as a control-plane node</div>
+        <div class="form-grid col1">
+          <div class="field">
+            <label>URL</label>
+            <input type="text" id="vm-cp-url" placeholder="https://accuknox.example.com"/>
+          </div>
+          <div class="field">
+            <label>Cluster Name</label>
+            <input type="text" id="vm-cp-cluster" placeholder="prod-cluster"/>
+          </div>
+          <div class="field">
+            <label>Auth Token</label>
+            <input type="password" id="vm-cp-token" placeholder="Bearer token"/>
+          </div>
+          <div class="field">
+            <label>Tenant ID</label>
+            <input type="text" id="vm-cp-tenant" placeholder="tenant-id"/>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="vm-cp-btn" onclick="runVM('onboard-vm-cp-node','vm-cp')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+            Onboard CP Node
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Worker Node</div>
+        <div class="card-sub">Onboard the VM as a worker node</div>
+        <div class="form-grid col1">
+          <div class="field">
+            <label>URL</label>
+            <input type="text" id="vm-wn-url" placeholder="https://accuknox.example.com"/>
+          </div>
+          <div class="field">
+            <label>Cluster Name</label>
+            <input type="text" id="vm-wn-cluster" placeholder="prod-cluster"/>
+          </div>
+          <div class="field">
+            <label>Auth Token</label>
+            <input type="password" id="vm-wn-token" placeholder="Bearer token"/>
+          </div>
+          <div class="field">
+            <label>Join Token</label>
+            <input type="text" id="vm-wn-join" placeholder="Obtained from CP node onboarding"/>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="vm-wn-btn" onclick="runVM('onboard-vm-node','vm-wn')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+            Onboard Worker Node
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="progress-wrap" id="vm-prog">
+      <div class="progress-label"><span id="vm-prog-msg">Running…</span><span id="vm-prog-pct"></span></div>
+      <div class="progress-bar"><div class="progress-fill running" id="vm-prog-fill" style="width:100%;animation:stripe 1s linear infinite"></div></div>
+    </div>
+    <div class="output-wrap" id="vm-out-wrap">
+      <div class="output-header"><div class="output-label">Output</div></div>
+      <div class="output-log" id="vm-out"></div>
+    </div>
+  </section>
+
+  <!-- ── Security Probe ─────────────────────────────────────────────────── -->
+  <section id="sec-probe" class="section">
+    <div class="page-title">Security Probe</div>
+    <div class="page-sub">Checks for supported security features and KubeArmor compatibility in the current environment.</div>
+    <div class="alert alert-info">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>The probe inspects the current environment for KubeArmor support, running state, and enforced policies. A Kubernetes context is required for in-cluster probing.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Probe Options</div>
+      <div class="card-sub">Configure what to probe</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Namespace</label>
+          <input type="text" id="probe-ns" value="kube-system" placeholder="kube-system"/>
+        </div>
+        <div class="field">
+          <label>Mode</label>
+          <select id="probe-full">
+            <option value="">Quick probe</option>
+            <option value="--full">Full probe (deploys daemonset)</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="probe-btn" onclick="runProbe()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+          Run Probe
+        </button>
+      </div>
+      <div class="progress-wrap" id="probe-prog">
+        <div class="progress-label"><span id="probe-prog-msg">Probing environment…</span></div>
+        <div class="progress-bar"><div class="progress-fill running" id="probe-prog-fill" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div class="output-wrap" id="probe-out-wrap">
+      <div class="output-header"><div class="output-label">Probe Results</div></div>
+      <div class="output-log" id="probe-out"></div>
+    </div>
+  </section>
+
+  <!-- ── Container Security ─────────────────────────────────────────────── -->
+  <section id="sec-imgscan" class="section">
+    <div class="page-title">Container Security Scan</div>
+    <div class="page-sub">Scan container images for OS and library vulnerabilities.</div>
+    <div class="card">
+      <div class="card-title">Scan Configuration</div>
+      <div class="card-sub">Specify the image and scan options</div>
+      <div class="form-grid">
+        <div class="field span2">
+          <label>Image Reference</label>
+          <input type="text" id="scan-image" placeholder="nginx:latest  or  registry.io/org/app:v2.1"/>
+        </div>
+        <div class="field">
+          <label>Output Format</label>
+          <select id="scan-format">
+            <option value="">Default (table)</option>
+            <option value="--format json">JSON</option>
+            <option value="--format cyclonedx">CycloneDX</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Severity Filter</label>
+          <select id="scan-severity">
+            <option value="">All severities</option>
+            <option value="--severity CRITICAL">Critical only</option>
+            <option value="--severity CRITICAL,HIGH">Critical + High</option>
+            <option value="--severity CRITICAL,HIGH,MEDIUM">Critical + High + Medium</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="scan-btn" onclick="runScan()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+          Start Scan
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="clearLog('scan')">Clear</button>
+      </div>
+      <div class="progress-wrap" id="scan-prog">
+        <div class="progress-label"><span id="scan-prog-msg">Initialising scanner…</span></div>
+        <div class="progress-bar"><div class="progress-fill running" id="scan-prog-fill" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div class="output-wrap" id="scan-out-wrap">
+      <div class="output-header"><div class="output-label">Scan Results</div></div>
+      <div class="output-log" id="scan-out"></div>
+    </div>
+  </section>
+
+</main><!-- /main -->
+</div><!-- /app -->
+
+<script>
+'use strict';
+/* ── State ─────────────────────────────────────────────────────────────────── */
+const counters = {sbom:0,cbom:0,aibom:0,scan:0};
+
+/* ── Navigation ────────────────────────────────────────────────────────────── */
+function nav(el, sectionId) {
+  const id = sectionId || el?.dataset?.section;
+  if (!id) return;
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  const item = document.querySelector(`.sb-item[data-section="${id}"]`);
+  if (item) item.classList.add('active');
+  const sec = document.getElementById(`sec-${id}`);
+  if (sec) sec.classList.add('active');
+  const titles = {dashboard:'Dashboard',sbom:'Software BOM',cbom:'Cryptography BOM',aibom:'AI / ML BOM',vm:'VM Onboarding',probe:'Security Probe',imgscan:'Container Security'};
+  document.getElementById('pageTitle').textContent = titles[id] || id;
+}
+
+/* ── Dark Mode ─────────────────────────────────────────────────────────────── */
+function toggleDark() {
+  const html = document.documentElement;
+  const dark = html.dataset.theme !== 'dark';
+  html.dataset.theme = dark ? 'dark' : 'light';
+  localStorage.setItem('theme', html.dataset.theme);
+  const icon = document.getElementById('darkIcon');
+  if (dark) {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+  } else {
+    icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+  }
+}
+
+/* ── Version fetch ─────────────────────────────────────────────────────────── */
+async function loadVersion() {
+  try {
+    const r = await fetch('/api/version');
+    const d = await r.json();
+    const v = d.version || 'dev';
+    document.getElementById('versionBadge').textContent = `knoxctl ${v}`;
+    document.getElementById('about-version').textContent = v;
+    document.getElementById('sbFooter').textContent = `knoxctl ${v} · AccuKnox`;
+  } catch {
+    document.getElementById('apiStatus').textContent = '● Disconnected';
+    document.getElementById('apiStatus').className = 'badge badge-err';
+  }
+}
+
+/* ── CBOM tab switch ───────────────────────────────────────────────────────── */
+function cbomTab(name, el) {
+  document.querySelectorAll('#sec-cbom .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('cbom-source-panel').style.display = name==='source' ? '' : 'none';
+  document.getElementById('cbom-image-panel').style.display = name==='image' ? '' : 'none';
+}
+
+/* ── Progress helpers ──────────────────────────────────────────────────────── */
+function showProgress(prefix, pct, msg) {
+  const wrap = document.getElementById(`${prefix}-prog`);
+  if (!wrap) return;
+  wrap.classList.add('show');
+  const fill = document.getElementById(`${prefix}-prog-fill`);
+  const msgEl = document.getElementById(`${prefix}-prog-msg`);
+  const pctEl = document.getElementById(`${prefix}-prog-pct`);
+  if (fill) { fill.style.width = pct + '%'; fill.classList.add('running'); }
+  if (msgEl) msgEl.textContent = msg;
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+function hideProgress(prefix) {
+  const wrap = document.getElementById(`${prefix}-prog`);
+  if (wrap) wrap.classList.remove('show');
+  const fill = document.getElementById(`${prefix}-prog-fill`);
+  if (fill) { fill.style.width = '100%'; fill.classList.remove('running'); }
+}
+function completeProgress(prefix) {
+  const fill = document.getElementById(`${prefix}-prog-fill`);
+  const msgEl = document.getElementById(`${prefix}-prog-msg`);
+  const pctEl = document.getElementById(`${prefix}-prog-pct`);
+  if (fill) { fill.style.width = '100%'; fill.classList.remove('running'); fill.style.background = 'var(--success)'; }
+  if (msgEl) msgEl.textContent = 'Complete';
+  if (pctEl) pctEl.textContent = '100%';
+  setTimeout(() => hideProgress(prefix), 2000);
+}
+function errorProgress(prefix, msg) {
+  const fill = document.getElementById(`${prefix}-prog-fill`);
+  const msgEl = document.getElementById(`${prefix}-prog-msg`);
+  if (fill) { fill.style.background = 'var(--error)'; fill.classList.remove('running'); }
+  if (msgEl) msgEl.textContent = '⚠ ' + msg;
+}
+
+/* ── Output helpers ────────────────────────────────────────────────────────── */
+function showOutput(prefix, content) {
+  const wrap = document.getElementById(`${prefix}-out-wrap`);
+  const box = document.getElementById(`${prefix}-out`);
+  if (wrap) wrap.classList.add('show');
+  if (box) box.textContent = content;
+}
+function clearOutput(prefix) {
+  const wrap = document.getElementById(`${prefix}-out-wrap`);
+  const box = document.getElementById(`${prefix}-out`);
+  const prog = document.getElementById(`${prefix}-prog`);
+  const cnt = document.getElementById(`${prefix}-count`);
+  if (wrap) wrap.classList.remove('show');
+  if (box) box.textContent = '';
+  if (prog) { prog.classList.remove('show'); const f = document.getElementById(`${prefix}-prog-fill`); if(f){f.style.width='0';f.style.background='';} }
+  if (cnt) cnt.textContent = '';
+}
+function appendLog(containerId, line, isErr) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const div = document.createElement('div');
+  div.className = 'log-line' + (isErr ? ' err' : '');
+  div.textContent = line;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(prefix) {
+  const box = document.getElementById(`${prefix}-out`);
+  const wrap = document.getElementById(`${prefix}-out-wrap`);
+  if (box) box.innerHTML = '';
+  if (wrap) wrap.classList.remove('show');
+  hideProgress(prefix);
+}
+function copyOutput(id) {
+  const el = document.getElementById(id);
+  if (el) navigator.clipboard.writeText(el.textContent).catch(()=>{});
+}
+function downloadOutput(id, filename) {
+  const el = document.getElementById(id);
+  if (!el || !el.textContent) return;
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(el.textContent);
+  a.download = filename;
+  a.click();
+}
+
+/* ── SSE runner ────────────────────────────────────────────────────────────── */
+function sseRun(url, body, progPrefix, onComplete, onError) {
+  fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
+    .then(resp => {
+      if (!resp.ok) return resp.json().then(d => { throw new Error(d.error || 'Request failed'); });
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      function pump() {
+        reader.read().then(({ done, value }) => {
+          if (done) return;
+          buf += decoder.decode(value, { stream: true });
+          const parts = buf.split('\n\n');
+          buf = parts.pop();
+          parts.forEach(part => {
+            const evMatch = part.match(/^event:\s*(.+)/m);
+            const dataMatch = part.match(/^data:\s*(.+)/m);
+            if (!evMatch || !dataMatch) return;
+            const ev = evMatch[1].trim();
+            let data;
+            try { data = JSON.parse(dataMatch[1]); } catch { return; }
+            if (ev === 'progress') showProgress(progPrefix, data.percent, data.message);
+            else if (ev === 'complete') { completeProgress(progPrefix); onComplete(data); }
+            else if (ev === 'error') { errorProgress(progPrefix, data.message); onError(data.message); }
+            else if (ev === 'log') onComplete({ log: data.line }); // streaming log line
+          });
+          pump();
+        }).catch(err => onError(err.message));
+      }
+      pump();
+    })
+    .catch(err => { errorProgress(progPrefix, err.message); onError(err.message); });
+}
+
+/* ── SBOM ──────────────────────────────────────────────────────────────────── */
+function runSBOM() {
+  const btn = document.getElementById('sbom-btn');
+  btn.disabled = true;
+  clearOutput('sbom');
+  showProgress('sbom', 5, 'Queuing scan…');
+  const args = ['cbom','source',
+    '--path', v('sbom-path') || '.',
+    '--format', v('sbom-format') || 'json'
+  ];
+  if (v('sbom-name')) args.push('--name', v('sbom-name'));
+  if (v('sbom-ver'))  args.push('--version', v('sbom-ver'));
+  sseRun('/api/run', { args },
+    'sbom',
+    data => {
+      if (data.log !== undefined) return;
+      counters.sbom++;
+      document.getElementById('dash-sbom').textContent = counters.sbom;
+      showOutput('sbom', data.result || '(no output)');
+      if (data.count !== undefined) document.getElementById('sbom-count').textContent = data.count + ' components';
+      btn.disabled = false;
+    },
+    err => {
+      showOutput('sbom', '⚠ Error: ' + err);
+      btn.disabled = false;
+    }
+  );
+}
+
+/* ── CBOM source ───────────────────────────────────────────────────────────── */
+function runCBOMSource() {
+  const btn = document.getElementById('cs-btn');
+  btn.disabled = true;
+  clearOutput('cbom');
+  showProgress('cbom', 5, 'Initialising…');
+  sseRun('/api/cbom/source', {
+    path:    v('cs-path') || '.',
+    name:    v('cs-name'),
+    group:   v('cs-group'),
+    version: v('cs-ver'),
+    description: v('cs-desc'),
+    license: v('cs-license'),
+  },
+  'cbom',
+  data => {
+    counters.cbom++;
+    document.getElementById('dash-cbom').textContent = counters.cbom;
+    showOutput('cbom', data.result || '(no output)');
+    const cnt = document.getElementById('cbom-count');
+    if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
+    btn.disabled = false;
+  },
+  err => { showOutput('cbom', '⚠ Error: ' + err); btn.disabled = false; });
+}
+
+/* ── CBOM image ────────────────────────────────────────────────────────────── */
+function runCBOMImage() {
+  const btn = document.getElementById('ci-btn');
+  if (!v('ci-image')) { alert('Please enter an image reference.'); return; }
+  btn.disabled = true;
+  clearOutput('cbom');
+  showProgress('cbom-img', 5, 'Initialising…');
+  sseRun('/api/cbom/image', {
+    image:   v('ci-image'),
+    name:    v('ci-name'),
+    plugins: v('ci-plugins'),
+    ignore:  v('ci-ignore'),
+  },
+  'cbom-img',
+  data => {
+    counters.cbom++;
+    document.getElementById('dash-cbom').textContent = counters.cbom;
+    showOutput('cbom', data.result || '(no output)');
+    const cnt = document.getElementById('cbom-count');
+    if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
+    btn.disabled = false;
+  },
+  err => { showOutput('cbom', '⚠ Error: ' + err); btn.disabled = false; });
+}
+
+/* ── AIBOM ─────────────────────────────────────────────────────────────────── */
+function runAIBOM() {
+  const btn = document.getElementById('ai-btn');
+  if (!v('ai-model')) { alert('Please enter a model identifier.'); return; }
+  btn.disabled = true;
+  clearOutput('aibom');
+  showProgress('aibom', 5, 'Initialising…');
+  sseRun('/api/aibom/generate', {
+    modelId:      v('ai-model'),
+    token:        v('ai-token'),
+    name:         v('ai-name'),
+    version:      v('ai-ver'),
+    manufacturer: v('ai-mfg'),
+  },
+  'aibom',
+  data => {
+    counters.aibom++;
+    document.getElementById('dash-aibom').textContent = counters.aibom;
+    showOutput('aibom', data.result || '(no output)');
+    const cnt = document.getElementById('aibom-count');
+    if (cnt && data.count !== undefined) cnt.textContent = data.count + ' model(s)';
+    btn.disabled = false;
+  },
+  err => { showOutput('aibom', '⚠ Error: ' + err); btn.disabled = false; });
+}
+
+/* ── VM ────────────────────────────────────────────────────────────────────── */
+function runVM(subCmd, prefix) {
+  const logEl = document.getElementById('vm-out');
+  const wrap = document.getElementById('vm-out-wrap');
+  logEl.innerHTML = '';
+  wrap.classList.add('show');
+  showProgress('vm', -1, 'Running VM onboarding…');
+  const args = [subCmd];
+  if (prefix === 'vm-cp') {
+    if (v('vm-cp-url'))     args.push('--url', v('vm-cp-url'));
+    if (v('vm-cp-cluster')) args.push('--cluster-name', v('vm-cp-cluster'));
+    if (v('vm-cp-token'))   args.push('--auth-token', v('vm-cp-token'));
+    if (v('vm-cp-tenant'))  args.push('--tenant-id', v('vm-cp-tenant'));
+  } else {
+    if (v('vm-wn-url'))     args.push('--url', v('vm-wn-url'));
+    if (v('vm-wn-cluster')) args.push('--cluster-name', v('vm-wn-cluster'));
+    if (v('vm-wn-token'))   args.push('--auth-token', v('vm-wn-token'));
+    if (v('vm-wn-join'))    args.push('--join-token', v('vm-wn-join'));
+  }
+  sseRun('/api/run', { args }, 'vm',
+    data => {
+      if (data.log !== undefined) { appendLog('vm-out', data.log); return; }
+      appendLog('vm-out', '✓ ' + (data.message || 'Done'));
+    },
+    err => appendLog('vm-out', '⚠ ' + err, true)
+  );
+}
+
+/* ── Probe ─────────────────────────────────────────────────────────────────── */
+function runProbe() {
+  const btn = document.getElementById('probe-btn');
+  const wrap = document.getElementById('probe-out-wrap');
+  const logEl = document.getElementById('probe-out');
+  logEl.innerHTML = '';
+  wrap.classList.add('show');
+  btn.disabled = true;
+  showProgress('probe', -1, 'Probing environment…');
+  const args = ['probe', '--namespace', v('probe-ns') || 'kube-system'];
+  if (v('probe-full') === '--full') args.push('--full');
+  sseRun('/api/run', { args }, 'probe',
+    data => {
+      if (data.log !== undefined) { appendLog('probe-out', data.log); return; }
+      appendLog('probe-out', '✓ ' + (data.message || 'Probe complete'));
+      btn.disabled = false;
+    },
+    err => { appendLog('probe-out', '⚠ ' + err, true); btn.disabled = false; }
+  );
+}
+
+/* ── Image Scan ────────────────────────────────────────────────────────────── */
+function runScan() {
+  const btn = document.getElementById('scan-btn');
+  const wrap = document.getElementById('scan-out-wrap');
+  const logEl = document.getElementById('scan-out');
+  if (!v('scan-image')) { alert('Please enter an image reference.'); return; }
+  logEl.innerHTML = '';
+  wrap.classList.add('show');
+  btn.disabled = true;
+  showProgress('scan', -1, 'Initialising scanner…');
+  const args = ['image-scan'];
+  // image-scan uses its own flags; pass through known ones
+  if (v('scan-severity')) args.push(...v('scan-severity').split(' ').filter(Boolean));
+  if (v('scan-format'))   args.push(...v('scan-format').split(' ').filter(Boolean));
+  // Note: the image reference is positional
+  args.push('--image', v('scan-image'));
+  sseRun('/api/run', { args }, 'scan',
+    data => {
+      if (data.log !== undefined) { appendLog('scan-out', data.log); return; }
+      counters.scan++;
+      document.getElementById('dash-scan').textContent = counters.scan;
+      appendLog('scan-out', '✓ ' + (data.message || 'Scan complete'));
+      btn.disabled = false;
+    },
+    err => { appendLog('scan-out', '⚠ ' + err, true); btn.disabled = false; }
+  );
+}
+
+/* ── Helpers ───────────────────────────────────────────────────────────────── */
+function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+/* ── Init ──────────────────────────────────────────────────────────────────── */
+(function init() {
+  // Restore theme preference
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark') {
+    document.documentElement.dataset.theme = 'dark';
+    const icon = document.getElementById('darkIcon');
+    if (icon) icon.innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+  }
+  loadVersion();
+  // Set dashboard counters
+  document.getElementById('dash-sbom').textContent = '0';
+  document.getElementById('dash-cbom').textContent = '0';
+  document.getElementById('dash-aibom').textContent = '0';
+  document.getElementById('dash-scan').textContent = '0';
+})();
+</script>
+</body>
+</html>
