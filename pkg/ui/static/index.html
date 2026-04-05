@@ -83,7 +83,17 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
 .sb-sub{padding-left:30px}
 .sb-sub .sb-item{padding:6px 12px;font-size:12.5px}
 .sb-spacer{flex:1}
-.sb-footer{padding:14px 16px;border-top:1px solid rgba(255,255,255,.06);color:var(--sidebar-head);font-size:11px}
+.sb-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:8px}
+.sb-footer-version{color:var(--sidebar-head);font-size:11px}
+.sb-conn{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500}
+.sb-conn-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.sb-conn-dot.connected{background:#22c55e;box-shadow:0 0 6px #22c55e88}
+.sb-conn-dot.disconnected{background:#ef4444}
+.sb-conn-dot.checking{background:#f59e0b;animation:pulse 1s infinite}
+.sb-conn-label{color:var(--sidebar-txt)}
+.sb-conn-label.connected{color:#86efac}
+.sb-conn-label.disconnected{color:#fca5a5}
+.sb-conn-label.checking{color:#fcd34d}
 
 /* ── Cards & Sections ──────────────────────────────────────────────────────── */
 .page-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
@@ -116,6 +126,9 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
 .btn-secondary:hover{background:var(--brand-light)}
 .btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
 .btn-ghost:hover{background:var(--bg)}
+.btn-stop{background:transparent;color:var(--error);border:1px solid var(--error);display:none}
+.btn-stop:hover{background:#fee2e2}
+[data-theme=dark] .btn-stop:hover{background:#3b0a0a}
 .btn-sm{padding:6px 12px;font-size:12.5px}
 .btn-row{display:flex;gap:10px;align-items:center;margin-top:16px}
 
@@ -256,7 +269,13 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
   </div>
 
   <div class="sb-spacer"></div>
-  <div class="sb-footer" id="sbFooter">knoxctl · AccuKnox</div>
+  <div class="sb-footer">
+    <div class="sb-conn">
+      <div class="sb-conn-dot checking" id="conn-dot"></div>
+      <span class="sb-conn-label checking" id="conn-label">Connecting…</span>
+    </div>
+    <div class="sb-footer-version" id="sbFooter">knoxctl · AccuKnox</div>
+  </div>
 </aside>
 
 <!-- ── Main Content ────────────────────────────────────────────────────────── -->
@@ -361,11 +380,28 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <input type="text" id="sbom-ver" placeholder="1.0.0"/>
         </div>
       </div>
+      <div class="sign-toggle">
+        <label class="sign-check"><input type="checkbox" id="sbom-sign" onchange="toggleSignOpts('sbom')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          Sign artifact with cosign (ECDSA P-256)
+        </label>
+        <div class="sign-opts" id="sbom-sign-opts" style="display:none">
+          <div class="sign-radios">
+            <label class="sign-radio"><input type="radio" name="sbom-sign-mode" value="generate" checked onchange="signModeChange('sbom',this)"> Generate new key pair</label>
+            <label class="sign-radio"><input type="radio" name="sbom-sign-mode" value="existing" onchange="signModeChange('sbom',this)"> Use existing key file</label>
+          </div>
+          <div id="sbom-sign-existing" style="display:none">
+            <div class="sign-field"><label>Private key path</label><input type="text" id="sbom-sign-key" placeholder="cosign.key"/></div>
+          </div>
+          <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="sbom-sign-pass" placeholder="Leave blank for no passphrase"/></div>
+        </div>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" id="sbom-btn" onclick="runSBOM()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
           Generate SBOM
         </button>
+        <button class="btn btn-stop btn-sm" id="sbom-stop" onclick="stopOperation('sbom')">&#9632; Stop</button>
         <button class="btn btn-ghost btn-sm" onclick="clearOutput('sbom')">Clear</button>
       </div>
       <div class="progress-wrap" id="sbom-prog">
@@ -375,10 +411,18 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     </div>
     <div class="output-wrap" id="sbom-out-wrap">
       <div class="output-header">
-        <div class="output-label">Output <span id="sbom-count" class="badge badge-info" style="margin-left:8px"></span></div>
+        <div class="output-label">SBOM Output <span id="sbom-count" class="badge badge-info" style="margin-left:8px"></span></div>
         <div class="output-actions">
           <button class="btn btn-ghost btn-sm" onclick="copyOutput('sbom-out')">Copy</button>
           <button class="btn btn-ghost btn-sm" onclick="downloadOutput('sbom-out','sbom.json')">Download</button>
+        </div>
+      </div>
+      <div class="sig-result" id="sbom-sig-wrap" style="display:none">
+        <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
+        <div class="sig-result-actions">
+          <button class="btn btn-ghost btn-sm" onclick="downloadSig('sbom')">&#8659; Signature (.sig)</button>
+          <button class="btn btn-ghost btn-sm" id="sbom-pubkey-btn" style="display:none" onclick="downloadPubKey('sbom')">&#8659; Public key (.pub)</button>
         </div>
       </div>
       <pre class="output-box" id="sbom-out"></pre>
@@ -428,7 +472,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         </div>
         <div class="sign-toggle">
           <label class="sign-check"><input type="checkbox" id="cs-sign" onchange="toggleSignOpts('cs')">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7z"/></svg>
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
             Sign artifact with cosign (ECDSA P-256)
           </label>
           <div class="sign-opts" id="cs-sign-opts" style="display:none">
@@ -447,6 +491,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
             Generate CBOM
           </button>
+          <button class="btn btn-stop btn-sm" id="cs-stop" onclick="stopOperation('cbom')">&#9632; Stop</button>
           <button class="btn btn-ghost btn-sm" onclick="clearOutput('cbom')">Clear</button>
         </div>
         <div class="progress-wrap" id="cbom-prog">
@@ -481,7 +526,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         </div>
         <div class="sign-toggle">
           <label class="sign-check"><input type="checkbox" id="ci-sign" onchange="toggleSignOpts('ci')">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7z"/></svg>
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
             Sign artifact with cosign (ECDSA P-256)
           </label>
           <div class="sign-opts" id="ci-sign-opts" style="display:none">
@@ -500,6 +545,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
             Scan Image
           </button>
+          <button class="btn btn-stop btn-sm" id="ci-stop" onclick="stopOperation('cbom-img')">&#9632; Stop</button>
           <button class="btn btn-ghost btn-sm" onclick="clearOutput('cbom')">Clear</button>
         </div>
         <div class="progress-wrap" id="cbom-img-prog">
@@ -562,7 +608,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       </div>
       <div class="sign-toggle">
         <label class="sign-check"><input type="checkbox" id="ai-sign" onchange="toggleSignOpts('ai')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7z"/></svg>
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
           Sign artifact with cosign (ECDSA P-256)
         </label>
         <div class="sign-opts" id="ai-sign-opts" style="display:none">
@@ -581,6 +627,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
           Generate AIBOM
         </button>
+        <button class="btn btn-stop btn-sm" id="ai-stop" onclick="stopOperation('aibom')">&#9632; Stop</button>
         <button class="btn btn-ghost btn-sm" onclick="clearOutput('aibom')">Clear</button>
       </div>
       <div class="progress-wrap" id="aibom-prog">
@@ -699,7 +746,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       <div class="form-grid">
         <div class="field">
           <label>Namespace</label>
-          <input type="text" id="probe-ns" value="kube-system" placeholder="kube-system"/>
+          <input type="text" id="probe-ns" value="agents" placeholder="agents"/>
         </div>
         <div class="field">
           <label>Mode</label>
@@ -714,6 +761,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
           Run Probe
         </button>
+        <button class="btn btn-stop btn-sm" id="probe-stop" onclick="stopOperation('probe')">&#9632; Stop</button>
       </div>
       <div class="progress-wrap" id="probe-prog">
         <div class="progress-label"><span id="probe-prog-msg">Probing environment…</span></div>
@@ -761,6 +809,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
           Start Scan
         </button>
+        <button class="btn btn-stop btn-sm" id="scan-stop" onclick="stopOperation('scan')">&#9632; Stop</button>
         <button class="btn btn-ghost btn-sm" onclick="clearLog('scan')">Clear</button>
       </div>
       <div class="progress-wrap" id="scan-prog">
@@ -810,19 +859,44 @@ function toggleDark() {
   }
 }
 
+/* ── Connection status ─────────────────────────────────────────────────────── */
+function setConnStatus(state, text) {
+  const dot   = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  if (!dot || !label) return;
+  dot.className   = `sb-conn-dot ${state}`;
+  label.className = `sb-conn-label ${state}`;
+  label.textContent = text;
+}
+
+async function checkConnection() {
+  try {
+    const r = await fetch('/api/version', { cache: 'no-store' });
+    if (!r.ok) throw new Error('non-200');
+    const d = await r.json();
+    const ver = d.version || 'dev';
+    setConnStatus('connected', 'Connected');
+    document.getElementById('versionBadge').textContent = `knoxctl ${ver}`;
+    const av = document.getElementById('about-version');
+    if (av) av.textContent = ver;
+    document.getElementById('sbFooter').textContent = `knoxctl ${ver} · AccuKnox`;
+    const as = document.getElementById('apiStatus');
+    if (as) { as.textContent = '● Connected'; as.className = 'badge badge-info'; }
+  } catch {
+    setConnStatus('disconnected', 'Disconnected');
+    const as = document.getElementById('apiStatus');
+    if (as) { as.textContent = '● Disconnected'; as.className = 'badge badge-err'; }
+  }
+}
+
+function startConnectionPolling() {
+  checkConnection();
+  setInterval(checkConnection, 10000); // re-check every 10 s
+}
+
 /* ── Version fetch ─────────────────────────────────────────────────────────── */
 async function loadVersion() {
-  try {
-    const r = await fetch('/api/version');
-    const d = await r.json();
-    const v = d.version || 'dev';
-    document.getElementById('versionBadge').textContent = `knoxctl ${v}`;
-    document.getElementById('about-version').textContent = v;
-    document.getElementById('sbFooter').textContent = `knoxctl ${v} · AccuKnox`;
-  } catch {
-    document.getElementById('apiStatus').textContent = '● Disconnected';
-    document.getElementById('apiStatus').className = 'badge badge-err';
-  }
+  await checkConnection();
 }
 
 /* ── Signing helpers ───────────────────────────────────────────────────────── */
@@ -959,8 +1033,18 @@ function downloadOutput(id, filename) {
 }
 
 /* ── SSE runner ────────────────────────────────────────────────────────────── */
+const _controllers = {};
+
 function sseRun(url, body, progPrefix, onComplete, onError) {
-  fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
+  const ctrl = new AbortController();
+  _controllers[progPrefix] = ctrl;
+
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+    signal: ctrl.signal,
+  })
     .then(resp => {
       if (!resp.ok) return resp.json().then(d => { throw new Error(d.error || 'Request failed'); });
       const reader = resp.body.getReader();
@@ -968,7 +1052,7 @@ function sseRun(url, body, progPrefix, onComplete, onError) {
       let buf = '';
       function pump() {
         reader.read().then(({ done, value }) => {
-          if (done) return;
+          if (done) { delete _controllers[progPrefix]; return; }
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
           buf = parts.pop();
@@ -980,51 +1064,85 @@ function sseRun(url, body, progPrefix, onComplete, onError) {
             let data;
             try { data = JSON.parse(dataMatch[1]); } catch { return; }
             if (ev === 'progress') showProgress(progPrefix, data.percent, data.message);
-            else if (ev === 'complete') { completeProgress(progPrefix); onComplete(data); }
-            else if (ev === 'error') { errorProgress(progPrefix, data.message); onError(data.message); }
-            else if (ev === 'log') onComplete({ log: data.line }); // streaming log line
+            else if (ev === 'complete') { delete _controllers[progPrefix]; completeProgress(progPrefix); onComplete(data); }
+            else if (ev === 'error') { delete _controllers[progPrefix]; errorProgress(progPrefix, data.message); onError(data.message); }
+            else if (ev === 'log') onComplete({ log: data.line });
           });
           pump();
-        }).catch(err => onError(err.message));
+        }).catch(err => {
+          delete _controllers[progPrefix];
+          if (err.name === 'AbortError') return; // already handled by stopOperation
+          onError(err.message);
+        });
       }
       pump();
     })
-    .catch(err => { errorProgress(progPrefix, err.message); onError(err.message); });
+    .catch(err => {
+      delete _controllers[progPrefix];
+      if (err.name !== 'AbortError') {
+        errorProgress(progPrefix, err.message);
+        onError(err.message);
+      }
+    });
+}
+
+function stopOperation(prefix) {
+  const ctrl = _controllers[prefix];
+  if (ctrl) { ctrl.abort(); delete _controllers[prefix]; }
+  errorProgress(prefix, 'Stopped');
+  // hide all stop buttons associated with this prefix
+  document.querySelectorAll('.btn-stop').forEach(b => {
+    if (b.getAttribute('onclick')?.includes(`'${prefix}'`)) b.style.display = 'none';
+  });
+  // re-enable all primary buttons in the same btn-row
+  document.querySelectorAll('.btn-stop').forEach(b => {
+    if (b.getAttribute('onclick')?.includes(`'${prefix}'`)) {
+      const row = b.closest('.btn-row');
+      if (row) row.querySelectorAll('.btn-primary').forEach(p => { p.disabled = false; });
+    }
+  });
+}
+
+/* ── op start/end helpers ──────────────────────────────────────────────────── */
+function opStart(startId, stopId) {
+  const s = document.getElementById(startId); if (s) s.disabled = true;
+  const x = document.getElementById(stopId);  if (x) x.style.display = '';
+}
+function opEnd(startId, stopId) {
+  const s = document.getElementById(startId); if (s) s.disabled = false;
+  const x = document.getElementById(stopId);  if (x) x.style.display = 'none';
 }
 
 /* ── SBOM ──────────────────────────────────────────────────────────────────── */
 function runSBOM() {
-  const btn = document.getElementById('sbom-btn');
-  btn.disabled = true;
+  opStart('sbom-btn', 'sbom-stop');
   clearOutput('sbom');
-  showProgress('sbom', 5, 'Queuing scan…');
-  const args = ['cbom','source',
-    '--path', v('sbom-path') || '.',
-    '--format', v('sbom-format') || 'json'
-  ];
-  if (v('sbom-name')) args.push('--name', v('sbom-name'));
-  if (v('sbom-ver'))  args.push('--version', v('sbom-ver'));
-  sseRun('/api/run', { args },
-    'sbom',
-    data => {
-      if (data.log !== undefined) return;
-      counters.sbom++;
-      document.getElementById('dash-sbom').textContent = counters.sbom;
-      showOutput('sbom', data.result || '(no output)');
-      if (data.count !== undefined) document.getElementById('sbom-count').textContent = data.count + ' components';
-      btn.disabled = false;
-    },
-    err => {
-      showOutput('sbom', '⚠ Error: ' + err);
-      btn.disabled = false;
-    }
-  );
+  showSignResult('sbom', {});
+  showProgress('sbom', 5, 'Initialising…');
+  sseRun('/api/sbom/generate', {
+    path:    v('sbom-path') || '.',
+    name:    v('sbom-name'),
+    version: v('sbom-ver'),
+    format:  v('sbom-format') || 'json',
+    ...getSignParams('sbom'),
+  },
+  'sbom',
+  data => {
+    counters.sbom++;
+    document.getElementById('dash-sbom').textContent = counters.sbom;
+    showOutput('sbom', data.result || '(no output)');
+    const cnt = document.getElementById('sbom-count');
+    if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
+    showSignResult('sbom', data);
+    if (data.signError) showOutput('sbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    opEnd('sbom-btn', 'sbom-stop');
+  },
+  err => { showOutput('sbom', '⚠ Error: ' + err); opEnd('sbom-btn', 'sbom-stop'); });
 }
 
 /* ── CBOM source ───────────────────────────────────────────────────────────── */
 function runCBOMSource() {
-  const btn = document.getElementById('cs-btn');
-  btn.disabled = true;
+  opStart('cs-btn', 'cs-stop');
   clearOutput('cbom');
   showSignResult('cbom', {});
   showProgress('cbom', 5, 'Initialising…');
@@ -1046,16 +1164,15 @@ function runCBOMSource() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('cbom', data);
     if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
-    btn.disabled = false;
+    opEnd('cs-btn', 'cs-stop');
   },
-  err => { showOutput('cbom', '⚠ Error: ' + err); btn.disabled = false; });
+  err => { showOutput('cbom', '⚠ Error: ' + err); opEnd('cs-btn', 'cs-stop'); });
 }
 
 /* ── CBOM image ────────────────────────────────────────────────────────────── */
 function runCBOMImage() {
-  const btn = document.getElementById('ci-btn');
   if (!v('ci-image')) { alert('Please enter an image reference.'); return; }
-  btn.disabled = true;
+  opStart('ci-btn', 'ci-stop');
   clearOutput('cbom');
   showSignResult('cbom', {});
   showProgress('cbom-img', 5, 'Initialising…');
@@ -1075,16 +1192,15 @@ function runCBOMImage() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('cbom', data);
     if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
-    btn.disabled = false;
+    opEnd('ci-btn', 'ci-stop');
   },
-  err => { showOutput('cbom', '⚠ Error: ' + err); btn.disabled = false; });
+  err => { showOutput('cbom', '⚠ Error: ' + err); opEnd('ci-btn', 'ci-stop'); });
 }
 
 /* ── AIBOM ─────────────────────────────────────────────────────────────────── */
 function runAIBOM() {
-  const btn = document.getElementById('ai-btn');
   if (!v('ai-model')) { alert('Please enter a model identifier.'); return; }
-  btn.disabled = true;
+  opStart('ai-btn', 'ai-stop');
   clearOutput('aibom');
   showSignResult('aibom', {});
   showProgress('aibom', 5, 'Initialising…');
@@ -1105,9 +1221,9 @@ function runAIBOM() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' model(s)';
     showSignResult('aibom', data);
     if (data.signError) showOutput('aibom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
-    btn.disabled = false;
+    opEnd('ai-btn', 'ai-stop');
   },
-  err => { showOutput('aibom', '⚠ Error: ' + err); btn.disabled = false; });
+  err => { showOutput('aibom', '⚠ Error: ' + err); opEnd('ai-btn', 'ai-stop'); });
 }
 
 /* ── VM ────────────────────────────────────────────────────────────────────── */
@@ -1140,40 +1256,36 @@ function runVM(subCmd, prefix) {
 
 /* ── Probe ─────────────────────────────────────────────────────────────────── */
 function runProbe() {
-  const btn = document.getElementById('probe-btn');
   const wrap = document.getElementById('probe-out-wrap');
   const logEl = document.getElementById('probe-out');
   logEl.innerHTML = '';
   wrap.classList.add('show');
-  btn.disabled = true;
+  opStart('probe-btn', 'probe-stop');
   showProgress('probe', -1, 'Probing environment…');
-  const args = ['probe', '--namespace', v('probe-ns') || 'kube-system'];
+  const args = ['probe', '--namespace', v('probe-ns') || 'agents'];
   if (v('probe-full') === '--full') args.push('--full');
   sseRun('/api/run', { args }, 'probe',
     data => {
       if (data.log !== undefined) { appendLog('probe-out', data.log); return; }
       appendLog('probe-out', '✓ ' + (data.message || 'Probe complete'));
-      btn.disabled = false;
+      opEnd('probe-btn', 'probe-stop');
     },
-    err => { appendLog('probe-out', '⚠ ' + err, true); btn.disabled = false; }
+    err => { appendLog('probe-out', '⚠ ' + err, true); opEnd('probe-btn', 'probe-stop'); }
   );
 }
 
 /* ── Image Scan ────────────────────────────────────────────────────────────── */
 function runScan() {
-  const btn = document.getElementById('scan-btn');
+  if (!v('scan-image')) { alert('Please enter an image reference.'); return; }
   const wrap = document.getElementById('scan-out-wrap');
   const logEl = document.getElementById('scan-out');
-  if (!v('scan-image')) { alert('Please enter an image reference.'); return; }
   logEl.innerHTML = '';
   wrap.classList.add('show');
-  btn.disabled = true;
+  opStart('scan-btn', 'scan-stop');
   showProgress('scan', -1, 'Initialising scanner…');
   const args = ['image-scan'];
-  // image-scan uses its own flags; pass through known ones
   if (v('scan-severity')) args.push(...v('scan-severity').split(' ').filter(Boolean));
   if (v('scan-format'))   args.push(...v('scan-format').split(' ').filter(Boolean));
-  // Note: the image reference is positional
   args.push('--image', v('scan-image'));
   sseRun('/api/run', { args }, 'scan',
     data => {
@@ -1181,9 +1293,9 @@ function runScan() {
       counters.scan++;
       document.getElementById('dash-scan').textContent = counters.scan;
       appendLog('scan-out', '✓ ' + (data.message || 'Scan complete'));
-      btn.disabled = false;
+      opEnd('scan-btn', 'scan-stop');
     },
-    err => { appendLog('scan-out', '⚠ ' + err, true); btn.disabled = false; }
+    err => { appendLog('scan-out', '⚠ ' + err, true); opEnd('scan-btn', 'scan-stop'); }
   );
 }
 
@@ -1199,7 +1311,7 @@ function v(id) { const el = document.getElementById(id); return el ? el.value.tr
     const icon = document.getElementById('darkIcon');
     if (icon) icon.innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
   }
-  loadVersion();
+  startConnectionPolling();
   // Set dashboard counters
   document.getElementById('dash-sbom').textContent = '0';
   document.getElementById('dash-cbom').textContent = '0';

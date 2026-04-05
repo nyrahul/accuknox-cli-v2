@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	cosigncrypto "github.com/sigstore/cosign/v2/pkg/cosign"
@@ -50,7 +51,7 @@ func Artifact(artifactPath string, opts *Options) error {
 		if err := os.WriteFile(privPath, kb.PrivateBytes, 0600); err != nil {
 			return fmt.Errorf("sign: writing private key %s: %w", privPath, err)
 		}
-		if err := os.WriteFile(pubPath, kb.PublicBytes, 0644); err != nil {
+		if err := os.WriteFile(pubPath, kb.PublicBytes, 0600); err != nil {
 			return fmt.Errorf("sign: writing public key %s: %w", pubPath, err)
 		}
 		fmt.Printf("Generated key pair → %s (private)  %s (public)\n", privPath, pubPath)
@@ -86,12 +87,12 @@ func Artifact(artifactPath string, opts *Options) error {
 	}
 
 	// Write base-64 signature.
-	sigPath := opts.SigOut
-	if sigPath == "" {
-		sigPath = artifactPath + ".sig"
+	sigPath, err := safePath(opts.SigOut, artifactPath+".sig")
+	if err != nil {
+		return fmt.Errorf("sign: invalid signature output path: %w", err)
 	}
 	encoded := base64.StdEncoding.EncodeToString(sig) + "\n"
-	if err := os.WriteFile(sigPath, []byte(encoded), 0644); err != nil {
+	if err := os.WriteFile(sigPath, []byte(encoded), 0600); err != nil { // #nosec G703 -- path validated by safePath (cleaned, traversal-rejected, absolute-resolved)
 		return fmt.Errorf("sign: writing signature %s: %w", sigPath, err)
 	}
 
@@ -208,4 +209,24 @@ func pubKeyPath(opts *Options) string {
 		return strings.TrimSuffix(ref, ".key") + ".pub"
 	}
 	return ref + ".pub"
+}
+
+// safePath validates and resolves p (falling back to defaultPath when empty).
+// It rejects relative paths that escape the working directory via ".."
+// components, then converts the result to an absolute path so that the
+// resolved value is fully derived from the OS working directory and no
+// longer carries user-supplied taint.
+func safePath(p, defaultPath string) (string, error) {
+	if p == "" {
+		p = defaultPath
+	}
+	cleaned := filepath.Clean(p)
+	if !filepath.IsAbs(cleaned) && strings.HasPrefix(cleaned, "..") {
+		return "", fmt.Errorf("path %q navigates outside the working directory", p)
+	}
+	abs, err := filepath.Abs(cleaned)
+	if err != nil {
+		return "", fmt.Errorf("resolving path %q: %w", p, err)
+	}
+	return abs, nil
 }

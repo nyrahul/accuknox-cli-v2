@@ -53,7 +53,11 @@ func extractBinary() (path string, cleanup func(), err error) {
 	if err != nil {
 		return "", nil, fmt.Errorf("creating temp dir for image scanner: %w", err)
 	}
-	cleanup = func() { os.RemoveAll(tmpDir) }
+	cleanup = func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+		}
+	}
 
 	path = filepath.Join(tmpDir, scannerBin)
 	if err = os.WriteFile(path, cbomkitBinary, 0o700); err != nil { // #nosec G306 — needs execute permission

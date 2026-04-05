@@ -75,6 +75,9 @@ func (s *Server) registerRoutes() {
 	// API — version
 	s.mux.HandleFunc("/api/version", cors(s.handleVersion))
 
+	// API — SBOM
+	s.mux.HandleFunc("/api/sbom/generate", cors(s.handleSBOM))
+
 	// API — CBOM
 	s.mux.HandleFunc("/api/cbom/source", cors(s.handleCBOMSource))
 	s.mux.HandleFunc("/api/cbom/image", cors(s.handleCBOMImage))
@@ -95,6 +98,75 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 		"version": s.version,
 		"time":    time.Now().UTC().Format(time.RFC3339),
 	})
+}
+
+func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Path    string `json:"path"`
+		Name    string `json:"name"`
+		Version string `json:"version"`
+		Format  string `json:"format"`
+		signReq
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, "invalid request: "+err.Error())
+		return
+	}
+	if req.Path == "" {
+		req.Path = "."
+	}
+	if req.Format == "" {
+		req.Format = "json"
+	}
+
+	send, flush, ok := sseInit(w)
+	if !ok {
+		return
+	}
+
+	send("progress", progress(10, "Initialising software BOM scanner…"))
+	flush()
+	if ctxDone(r.Context(), send, flush) {
+		return
+	}
+
+	opts := &cbom.Options{
+		Path:    req.Path,
+		Name:    req.Name,
+		Version: req.Version,
+		Format:  "json",
+	}
+
+	send("progress", progress(30, "Scanning source tree for software components…"))
+	flush()
+
+	bom, err := cbom.GenerateFromSource(opts)
+	if err != nil {
+		send("error", errMsg(err))
+		flush()
+		return
+	}
+	if ctxDone(r.Context(), send, flush) {
+		return
+	}
+
+	send("progress", progress(80, "Building Software BOM…"))
+	flush()
+
+	out, err := json.MarshalIndent(bom, "", "  ")
+	if err != nil {
+		send("error", errMsg(err))
+		flush()
+		return
+	}
+
+	count := cbom.ComponentCount(bom)
+	send("complete", buildComplete(count, out, req.signReq))
+	flush()
 }
 
 func (s *Server) handleCBOMSource(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +198,9 @@ func (s *Server) handleCBOMSource(w http.ResponseWriter, r *http.Request) {
 
 	send("progress", progress(10, "Initialising source scanner…"))
 	flush()
+	if ctxDone(r.Context(), send, flush) {
+		return
+	}
 
 	opts := &cbom.Options{
 		Path:        req.Path,
@@ -144,6 +219,9 @@ func (s *Server) handleCBOMSource(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		send("error", errMsg(err))
 		flush()
+		return
+	}
+	if ctxDone(r.Context(), send, flush) {
 		return
 	}
 
@@ -190,6 +268,9 @@ func (s *Server) handleCBOMImage(w http.ResponseWriter, r *http.Request) {
 
 	send("progress", progress(10, "Initialising image scanner…"))
 	flush()
+	if ctxDone(r.Context(), send, flush) {
+		return
+	}
 
 	opts := &cbom.Options{
 		Image:   req.Image,
@@ -206,6 +287,9 @@ func (s *Server) handleCBOMImage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		send("error", errMsg(err))
 		flush()
+		return
+	}
+	if ctxDone(r.Context(), send, flush) {
 		return
 	}
 
@@ -253,6 +337,9 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 
 	send("progress", progress(10, "Connecting to model registry…"))
 	flush()
+	if ctxDone(r.Context(), send, flush) {
+		return
+	}
 
 	opts := &aibom.Options{
 		ModelID:      req.ModelID,
@@ -272,6 +359,9 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 		flush()
 		return
 	}
+	if ctxDone(r.Context(), send, flush) {
+		return
+	}
 
 	send("progress", progress(80, "Building AI/ML BOM…"))
 	flush()
@@ -286,6 +376,17 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 	count := aibom.ModelCount(bom)
 	send("complete", buildComplete(count, out, req.signReq))
 	flush()
+}
+
+// ctxDone returns true and sends an SSE error event if the request context has
+// been cancelled (e.g. because the client aborted the fetch).
+func ctxDone(ctx context.Context, send func(string, interface{}), flush func()) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+	send("error", errMsg(ctx.Err()))
+	flush()
+	return true
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -357,6 +458,9 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 
 	self := resolveKnoxctl()
 
+	// Derive a timeout context from the *request* context so that an
+	// AbortController on the client side (which closes the HTTP connection
+	// and therefore cancels r.Context()) propagates to the subprocess.
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 
@@ -367,14 +471,34 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	send("progress", progress(10, "Running: knoxctl "+strings.Join(req.Args, " ")))
 	flush()
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
 		send("error", errMsg(err))
 		flush()
 		return
 	}
 
-	send("complete", map[string]interface{}{"message": "Command completed successfully."})
-	flush()
+	// Wait for the process to finish in a goroutine so we can also listen for
+	// context cancellation (client disconnect / Stop button / timeout).
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	select {
+	case err := <-done:
+		// Process exited normally (or with an error).
+		if err != nil && ctx.Err() == nil {
+			send("error", errMsg(err))
+			flush()
+		} else if ctx.Err() == nil {
+			send("complete", map[string]interface{}{"message": "Command completed successfully."})
+			flush()
+		}
+		// If ctx is already done the client is gone — no point writing.
+
+	case <-ctx.Done():
+		// Client disconnected or timeout hit.
+		// exec.CommandContext will send SIGKILL; wait for it to exit.
+		<-done
+	}
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -447,13 +571,17 @@ func cors(h http.HandlerFunc) http.HandlerFunc {
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func writeErr(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+		http.Error(w, "failed to encode error response", http.StatusInternalServerError)
+	}
 }
 
 // portFrom extracts the port number from "host:port".
