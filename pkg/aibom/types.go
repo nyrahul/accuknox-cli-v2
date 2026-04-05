@@ -3,6 +3,8 @@
 
 package aibom
 
+import "github.com/accuknox/accuknox-cli-v2/pkg/sign"
+
 // Options holds configuration for AIBOM generation.
 type Options struct {
 	// HuggingFace model identifier, e.g. "google-bert/bert-base-uncased"
@@ -19,6 +21,9 @@ type Options struct {
 	// Output
 	OutputTo string // write AIBOM JSON to this file instead of stdout
 	Format   string // "json" or "table"
+
+	// Signing options — sign the output artifact with cosign.
+	Sign sign.Options
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

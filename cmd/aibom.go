@@ -63,4 +63,12 @@ func init() {
 	// Output flags
 	aibomCmd.PersistentFlags().StringVar(&aibomOpts.OutputTo, "out", "", "Write AIBOM JSON to this file")
 	aibomCmd.PersistentFlags().StringVar(&aibomOpts.Format, "format", "json", `Output format: "json" or "table"`)
+
+	// Signing flags (only meaningful when --out is set)
+	aibomCmd.PersistentFlags().BoolVar(&aibomOpts.Sign.Enabled, "sign", false, "Sign the output artifact with cosign after generation")
+	aibomCmd.PersistentFlags().BoolVar(&aibomOpts.Sign.GenerateKey, "sign-generate-key", false, "Generate a new ECDSA P-256 key pair before signing")
+	aibomCmd.PersistentFlags().StringVar(&aibomOpts.Sign.KeyRef, "sign-key", "", "Path to existing cosign private key (default: cosign.key)")
+	aibomCmd.PersistentFlags().StringVar(&aibomOpts.Sign.KeyOut, "sign-key-out", "cosign", "Filename prefix for generated key pair (produces <prefix>.key / <prefix>.pub)")
+	aibomCmd.PersistentFlags().StringVar(&aibomOpts.Sign.Password, "sign-key-password", "", "Passphrase for the signing key (empty = no passphrase)")
+	aibomCmd.PersistentFlags().StringVar(&aibomOpts.Sign.SigOut, "sign-sig-out", "", "Path to write the signature (default: <out>.sig)")
 }

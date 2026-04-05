@@ -18,6 +18,7 @@ import (
 
 	"github.com/accuknox/accuknox-cli-v2/pkg/aibom"
 	"github.com/accuknox/accuknox-cli-v2/pkg/cbom"
+	"github.com/accuknox/accuknox-cli-v2/pkg/sign"
 )
 
 // Server is the knoxctl embedded web UI HTTP server.
@@ -108,6 +109,7 @@ func (s *Server) handleCBOMSource(w http.ResponseWriter, r *http.Request) {
 		Version     string `json:"version"`
 		Description string `json:"description"`
 		License     string `json:"license"`
+		signReq
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, "invalid request: "+err.Error())
@@ -156,10 +158,7 @@ func (s *Server) handleCBOMSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	count := cbom.ComponentCount(bom)
-	send("complete", map[string]interface{}{
-		"count":  count,
-		"result": string(out),
-	})
+	send("complete", buildComplete(count, out, req.signReq))
 	flush()
 }
 
@@ -173,6 +172,7 @@ func (s *Server) handleCBOMImage(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Plugins string `json:"plugins"`
 		Ignore  string `json:"ignore"`
+		signReq
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, "invalid request: "+err.Error())
@@ -220,10 +220,7 @@ func (s *Server) handleCBOMImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	count := cbom.ComponentCount(bom)
-	send("complete", map[string]interface{}{
-		"count":  count,
-		"result": string(out),
-	})
+	send("complete", buildComplete(count, out, req.signReq))
 	flush()
 }
 
@@ -238,6 +235,7 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 		Name         string `json:"name"`
 		Version      string `json:"version"`
 		Manufacturer string `json:"manufacturer"`
+		signReq
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, "invalid request: "+err.Error())
@@ -286,11 +284,50 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	count := aibom.ModelCount(bom)
-	send("complete", map[string]interface{}{
-		"count":  count,
-		"result": string(out),
-	})
+	send("complete", buildComplete(count, out, req.signReq))
 	flush()
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Signing helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+// signReq holds the signing fields that every BOM handler accepts.
+type signReq struct {
+	SignEnabled     bool   `json:"signEnabled"`
+	SignGenerateKey bool   `json:"signGenerateKey"`
+	SignKeyRef      string `json:"signKeyRef"`
+	SignPassword    string `json:"signPassword"`
+}
+
+// buildComplete builds the SSE "complete" payload.  When signing is requested
+// it calls sign.SignBytes in-memory and appends the result; the JSON
+// payload will contain "signed", "signature", and (for generated keys) "pubKey".
+func buildComplete(count int, bomJSON []byte, sr signReq) map[string]interface{} {
+	payload := map[string]interface{}{
+		"count":  count,
+		"result": string(bomJSON),
+	}
+	if !sr.SignEnabled {
+		return payload
+	}
+	opts := &sign.Options{
+		Enabled:     true,
+		GenerateKey: sr.SignGenerateKey,
+		KeyRef:      sr.SignKeyRef,
+		Password:    sr.SignPassword,
+	}
+	sigB64, pubKeyPEM, err := sign.SignBytes(bomJSON, opts)
+	if err != nil {
+		payload["signError"] = err.Error()
+		return payload
+	}
+	payload["signed"] = true
+	payload["signature"] = sigB64
+	if len(pubKeyPEM) > 0 {
+		payload["pubKey"] = string(pubKeyPEM)
+	}
+	return payload
 }
 
 // handleRun executes an arbitrary knoxctl sub-command and streams its

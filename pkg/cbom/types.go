@@ -3,6 +3,8 @@
 
 package cbom
 
+import "github.com/accuknox/accuknox-cli-v2/pkg/sign"
+
 // Options holds configuration for CBOM generation.
 type Options struct {
 	// Source scanning
@@ -24,4 +26,7 @@ type Options struct {
 	Ignore   string // glob patterns to exclude from scanning
 	OutputTo string // write CBOM JSON to this file instead of stdout
 	Format   string // output format: "json" (default) or "table"
+
+	// Signing options — sign the output artifact with cosign.
+	Sign sign.Options
 }

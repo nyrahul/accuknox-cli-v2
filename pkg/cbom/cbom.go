@@ -21,6 +21,8 @@ import (
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
 	"github.com/google/uuid"
+
+	"github.com/accuknox/accuknox-cli-v2/pkg/sign"
 )
 
 // GenerateFromSource scans Go source files under opts.Path and returns a
@@ -187,7 +189,7 @@ func printJSON(bom *cdx.BOM, opts *Options) error {
 			return fmt.Errorf("writing CBOM to %s: %w", opts.OutputTo, err)
 		}
 		fmt.Printf("CBOM written to %s\n", opts.OutputTo)
-		return nil
+		return sign.Artifact(opts.OutputTo, &opts.Sign)
 	}
 	fmt.Println(string(data))
 	return nil

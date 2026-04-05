@@ -18,6 +18,8 @@ import (
 
 	cdx "github.com/CycloneDX/cyclonedx-go"
 	"github.com/google/uuid"
+
+	"github.com/accuknox/accuknox-cli-v2/pkg/sign"
 )
 
 const (
@@ -480,7 +482,7 @@ func printJSON(bom *cdx.BOM, opts *Options) error {
 			return fmt.Errorf("writing AIBOM to %s: %w", opts.OutputTo, err)
 		}
 		fmt.Printf("AIBOM written to %s\n", opts.OutputTo)
-		return nil
+		return sign.Artifact(opts.OutputTo, &opts.Sign)
 	}
 	fmt.Println(string(data))
 	return nil

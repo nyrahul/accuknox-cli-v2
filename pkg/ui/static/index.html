@@ -146,6 +146,25 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
 .badge-warn{background:#fef3c7;color:#92400e}
 .badge-info{background:var(--brand-light);color:var(--brand)}
 
+/* ── Signing panel ─────────────────────────────────────────────────────────── */
+.sign-toggle{margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
+.sign-check{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);user-select:none}
+.sign-check input[type=checkbox]{width:15px;height:15px;accent-color:var(--brand);cursor:pointer}
+.sign-opts{margin-top:12px;padding:12px 14px;background:var(--bg);border-radius:8px;border:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+.sign-radios{display:flex;gap:20px}
+.sign-radio{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:500}
+.sign-radio input{accent-color:var(--brand);cursor:pointer}
+.sign-field{display:flex;flex-direction:column;gap:4px}
+.sign-field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
+.sign-field input{padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:13px;outline:none}
+.sign-field input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(0,86,184,.1)}
+.sig-result{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;margin-top:8px;flex-wrap:wrap}
+[data-theme=dark] .sig-result{background:#052e16;border-color:#166534}
+.sig-result-icon{color:#059669;flex-shrink:0}
+.sig-result-label{font-size:13px;font-weight:600;color:#065f46;flex:1}
+[data-theme=dark] .sig-result-label{color:#6ee7b7}
+.sig-result-actions{display:flex;gap:6px;flex-wrap:wrap}
+
 /* ── Dashboard Stats ───────────────────────────────────────────────────────── */
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
@@ -407,6 +426,22 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <input type="text" id="cs-license" placeholder="Apache-2.0"/>
           </div>
         </div>
+        <div class="sign-toggle">
+          <label class="sign-check"><input type="checkbox" id="cs-sign" onchange="toggleSignOpts('cs')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7z"/></svg>
+            Sign artifact with cosign (ECDSA P-256)
+          </label>
+          <div class="sign-opts" id="cs-sign-opts" style="display:none">
+            <div class="sign-radios">
+              <label class="sign-radio"><input type="radio" name="cs-sign-mode" value="generate" checked onchange="signModeChange('cs',this)"> Generate new key pair</label>
+              <label class="sign-radio"><input type="radio" name="cs-sign-mode" value="existing" onchange="signModeChange('cs',this)"> Use existing key file</label>
+            </div>
+            <div id="cs-sign-existing" style="display:none">
+              <div class="sign-field"><label>Private key path</label><input type="text" id="cs-sign-key" placeholder="cosign.key"/></div>
+            </div>
+            <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="cs-sign-pass" placeholder="Leave blank for no passphrase"/></div>
+          </div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="cs-btn" onclick="runCBOMSource()">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -444,6 +479,22 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <input type="text" id="ci-ignore" placeholder="*.test  (glob patterns)"/>
           </div>
         </div>
+        <div class="sign-toggle">
+          <label class="sign-check"><input type="checkbox" id="ci-sign" onchange="toggleSignOpts('ci')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7z"/></svg>
+            Sign artifact with cosign (ECDSA P-256)
+          </label>
+          <div class="sign-opts" id="ci-sign-opts" style="display:none">
+            <div class="sign-radios">
+              <label class="sign-radio"><input type="radio" name="ci-sign-mode" value="generate" checked onchange="signModeChange('ci',this)"> Generate new key pair</label>
+              <label class="sign-radio"><input type="radio" name="ci-sign-mode" value="existing" onchange="signModeChange('ci',this)"> Use existing key file</label>
+            </div>
+            <div id="ci-sign-existing" style="display:none">
+              <div class="sign-field"><label>Private key path</label><input type="text" id="ci-sign-key" placeholder="cosign.key"/></div>
+            </div>
+            <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="ci-sign-pass" placeholder="Leave blank for no passphrase"/></div>
+          </div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="ci-btn" onclick="runCBOMImage()">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -464,6 +515,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         <div class="output-actions">
           <button class="btn btn-ghost btn-sm" onclick="copyOutput('cbom-out')">Copy</button>
           <button class="btn btn-ghost btn-sm" onclick="downloadOutput('cbom-out','cbom.json')">Download</button>
+        </div>
+      </div>
+      <div class="sig-result" id="cbom-sig-wrap" style="display:none">
+        <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
+        <div class="sig-result-actions">
+          <button class="btn btn-ghost btn-sm" onclick="downloadSig('cbom')">&#8659; Signature (.sig)</button>
+          <button class="btn btn-ghost btn-sm" id="cbom-pubkey-btn" style="display:none" onclick="downloadPubKey('cbom')">&#8659; Public key (.pub)</button>
         </div>
       </div>
       <pre class="output-box" id="cbom-out"></pre>
@@ -501,6 +560,22 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <input type="text" id="ai-mfg" placeholder="Override manufacturer name"/>
         </div>
       </div>
+      <div class="sign-toggle">
+        <label class="sign-check"><input type="checkbox" id="ai-sign" onchange="toggleSignOpts('ai')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--brand)"><path d="M12 2L3 7v6c0 5.25 3.75 10.15 9 11.25C17.25 23.15 21 18.25 21 13V7z"/></svg>
+          Sign artifact with cosign (ECDSA P-256)
+        </label>
+        <div class="sign-opts" id="ai-sign-opts" style="display:none">
+          <div class="sign-radios">
+            <label class="sign-radio"><input type="radio" name="ai-sign-mode" value="generate" checked onchange="signModeChange('ai',this)"> Generate new key pair</label>
+            <label class="sign-radio"><input type="radio" name="ai-sign-mode" value="existing" onchange="signModeChange('ai',this)"> Use existing key file</label>
+          </div>
+          <div id="ai-sign-existing" style="display:none">
+            <div class="sign-field"><label>Private key path</label><input type="text" id="ai-sign-key" placeholder="cosign.key"/></div>
+          </div>
+          <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="ai-sign-pass" placeholder="Leave blank for no passphrase"/></div>
+        </div>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" id="ai-btn" onclick="runAIBOM()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -520,6 +595,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         <div class="output-actions">
           <button class="btn btn-ghost btn-sm" onclick="copyOutput('aibom-out')">Copy</button>
           <button class="btn btn-ghost btn-sm" onclick="downloadOutput('aibom-out','aibom.json')">Download</button>
+        </div>
+      </div>
+      <div class="sig-result" id="aibom-sig-wrap" style="display:none">
+        <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
+        <div class="sig-result-actions">
+          <button class="btn btn-ghost btn-sm" onclick="downloadSig('aibom')">&#8659; Signature (.sig)</button>
+          <button class="btn btn-ghost btn-sm" id="aibom-pubkey-btn" style="display:none" onclick="downloadPubKey('aibom')">&#8659; Public key (.pub)</button>
         </div>
       </div>
       <pre class="output-box" id="aibom-out"></pre>
@@ -742,6 +825,51 @@ async function loadVersion() {
   }
 }
 
+/* ── Signing helpers ───────────────────────────────────────────────────────── */
+function toggleSignOpts(prefix) {
+  const cb = document.getElementById(`${prefix}-sign`);
+  const opts = document.getElementById(`${prefix}-sign-opts`);
+  if (opts) opts.style.display = cb?.checked ? '' : 'none';
+}
+function signModeChange(prefix, radio) {
+  const existing = document.getElementById(`${prefix}-sign-existing`);
+  if (existing) existing.style.display = radio.value === 'existing' ? '' : 'none';
+}
+function getSignParams(prefix) {
+  const cb = document.getElementById(`${prefix}-sign`);
+  if (!cb?.checked) return { signEnabled: false };
+  const radios = document.querySelectorAll(`input[name="${prefix}-sign-mode"]`);
+  const mode = [...radios].find(r => r.checked)?.value || 'generate';
+  return {
+    signEnabled: true,
+    signGenerateKey: mode === 'generate',
+    signKeyRef:  mode === 'existing' ? (v(`${prefix}-sign-key`) || '') : '',
+    signPassword: v(`${prefix}-sign-pass`) || '',
+  };
+}
+const _sigStore = {};
+function showSignResult(key, data) {
+  const wrap = document.getElementById(`${key}-sig-wrap`);
+  if (!wrap) return;
+  if (!data.signed) { wrap.style.display = 'none'; return; }
+  _sigStore[key] = { sig: data.signature || '', pubKey: data.pubKey || '' };
+  wrap.style.display = '';
+  const pb = document.getElementById(`${key}-pubkey-btn`);
+  if (pb) pb.style.display = data.pubKey ? '' : 'none';
+}
+function downloadSig(key) {
+  const d = _sigStore[key]; if (!d?.sig) return;
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(d.sig + '\n');
+  a.download = key + '.sig'; a.click();
+}
+function downloadPubKey(key) {
+  const d = _sigStore[key]; if (!d?.pubKey) return;
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(d.pubKey);
+  a.download = 'cosign.pub'; a.click();
+}
+
 /* ── CBOM tab switch ───────────────────────────────────────────────────────── */
 function cbomTab(name, el) {
   document.querySelectorAll('#sec-cbom .tab').forEach(t => t.classList.remove('active'));
@@ -898,6 +1026,7 @@ function runCBOMSource() {
   const btn = document.getElementById('cs-btn');
   btn.disabled = true;
   clearOutput('cbom');
+  showSignResult('cbom', {});
   showProgress('cbom', 5, 'Initialising…');
   sseRun('/api/cbom/source', {
     path:    v('cs-path') || '.',
@@ -906,6 +1035,7 @@ function runCBOMSource() {
     version: v('cs-ver'),
     description: v('cs-desc'),
     license: v('cs-license'),
+    ...getSignParams('cs'),
   },
   'cbom',
   data => {
@@ -914,6 +1044,8 @@ function runCBOMSource() {
     showOutput('cbom', data.result || '(no output)');
     const cnt = document.getElementById('cbom-count');
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
+    showSignResult('cbom', data);
+    if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
     btn.disabled = false;
   },
   err => { showOutput('cbom', '⚠ Error: ' + err); btn.disabled = false; });
@@ -925,12 +1057,14 @@ function runCBOMImage() {
   if (!v('ci-image')) { alert('Please enter an image reference.'); return; }
   btn.disabled = true;
   clearOutput('cbom');
+  showSignResult('cbom', {});
   showProgress('cbom-img', 5, 'Initialising…');
   sseRun('/api/cbom/image', {
     image:   v('ci-image'),
     name:    v('ci-name'),
     plugins: v('ci-plugins'),
     ignore:  v('ci-ignore'),
+    ...getSignParams('ci'),
   },
   'cbom-img',
   data => {
@@ -939,6 +1073,8 @@ function runCBOMImage() {
     showOutput('cbom', data.result || '(no output)');
     const cnt = document.getElementById('cbom-count');
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
+    showSignResult('cbom', data);
+    if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
     btn.disabled = false;
   },
   err => { showOutput('cbom', '⚠ Error: ' + err); btn.disabled = false; });
@@ -950,6 +1086,7 @@ function runAIBOM() {
   if (!v('ai-model')) { alert('Please enter a model identifier.'); return; }
   btn.disabled = true;
   clearOutput('aibom');
+  showSignResult('aibom', {});
   showProgress('aibom', 5, 'Initialising…');
   sseRun('/api/aibom/generate', {
     modelId:      v('ai-model'),
@@ -957,6 +1094,7 @@ function runAIBOM() {
     name:         v('ai-name'),
     version:      v('ai-ver'),
     manufacturer: v('ai-mfg'),
+    ...getSignParams('ai'),
   },
   'aibom',
   data => {
@@ -965,6 +1103,8 @@ function runAIBOM() {
     showOutput('aibom', data.result || '(no output)');
     const cnt = document.getElementById('aibom-count');
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' model(s)';
+    showSignResult('aibom', data);
+    if (data.signError) showOutput('aibom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
     btn.disabled = false;
   },
   err => { showOutput('aibom', '⚠ Error: ' + err); btn.disabled = false; });

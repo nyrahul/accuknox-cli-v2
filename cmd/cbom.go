@@ -83,4 +83,12 @@ func init() {
 	cbomCmd.PersistentFlags().StringVar(&cbomOpts.License, "license", "", "SPDX license identifier (e.g. Apache-2.0)")
 	cbomCmd.PersistentFlags().StringVar(&cbomOpts.OutputTo, "out", "", "Write CBOM JSON to this file")
 	cbomCmd.PersistentFlags().StringVar(&cbomOpts.Format, "format", "json", `Output format: "json" or "table"`)
+
+	// Signing flags (only meaningful when --out is set)
+	cbomCmd.PersistentFlags().BoolVar(&cbomOpts.Sign.Enabled, "sign", false, "Sign the output artifact with cosign after generation")
+	cbomCmd.PersistentFlags().BoolVar(&cbomOpts.Sign.GenerateKey, "sign-generate-key", false, "Generate a new ECDSA P-256 key pair before signing")
+	cbomCmd.PersistentFlags().StringVar(&cbomOpts.Sign.KeyRef, "sign-key", "", "Path to existing cosign private key (default: cosign.key)")
+	cbomCmd.PersistentFlags().StringVar(&cbomOpts.Sign.KeyOut, "sign-key-out", "cosign", "Filename prefix for generated key pair (produces <prefix>.key / <prefix>.pub)")
+	cbomCmd.PersistentFlags().StringVar(&cbomOpts.Sign.Password, "sign-key-password", "", "Passphrase for the signing key (empty = no passphrase)")
+	cbomCmd.PersistentFlags().StringVar(&cbomOpts.Sign.SigOut, "sign-sig-out", "", "Path to write the signature (default: <out>.sig)")
 }
