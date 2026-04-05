@@ -2,29 +2,63 @@ package imagescan
 
 import (
 	"fmt"
-	"os/exec"
+	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
+
+	"github.com/accuknox/accuknox-cli-v2/pkg/tools"
 )
 
-var defaultTrivyVersion = "0.69.2"
+// trivyToolName is the tool name as declared in tools.yaml.
+const trivyToolName = "imgscan"
 
-// Returns the tar.gz url for the provided trivy version
-func GetTrivyDownloadURL(version string) string {
-	osName := mapOS(runtime.GOOS)
-	archName := mapArch(runtime.GOARCH)
-
-	if osName == "" || archName == "" {
-		fmt.Printf("unsupported platform: %s-%s\n", runtime.GOOS, runtime.GOARCH)
+// resolveTrivyBin returns the path to the trivy binary, extracted from the
+// embedded binary built from the trivy submodule during `make prebuild`.
+func resolveTrivyBin() (string, error) {
+	cfg, err := tools.Load()
+	if err != nil {
+		return "", fmt.Errorf("loading tools config: %w", err)
 	}
+	for i := range cfg.Tools {
+		if cfg.Tools[i].Name == trivyToolName {
+			return cfg.Tools[i].EnsureInstalled()
+		}
+	}
+	return "", fmt.Errorf("tool %q not found in tools.yaml", trivyToolName)
+}
 
-	// Construct the URL
-	return fmt.Sprintf(
-		"https://github.com/aquasecurity/trivy/releases/download/v%s/trivy_%s_%s-%s.tar.gz",
-		version, version, osName, archName,
-	)
+// IsTrivyInstalled checks whether the embedded trivy binary is available and,
+// if so, prepends its directory to PATH so kubeshield can locate it.
+func IsTrivyInstalled() bool {
+	path, err := resolveTrivyBin()
+	if err != nil {
+		fmt.Println("Container image scanner is not available. Run 'make prebuild' to build it.")
+		return false
+	}
+	prependToPath(filepath.Dir(path))
+	return true
+}
+
+// installTrivy resolves the embedded trivy binary and exposes it via PATH.
+func installTrivy() error {
+	path, err := resolveTrivyBin()
+	if err != nil {
+		return err
+	}
+	prependToPath(filepath.Dir(path))
+	return nil
+}
+
+// prependToPath adds dir to the front of the PATH environment variable.
+func prependToPath(dir string) {
+	_ = os.Setenv("PATH", fmt.Sprintf("%s%c%s", dir, os.PathListSeparator, os.Getenv("PATH")))
+}
+
+// IsValidDomain validates that a domain follows the expected https:// pattern.
+func IsValidDomain(domain string) bool {
+	re := regexp.MustCompile(`^https:\/\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
+	return re.MatchString(domain)
 }
 
 func mapOS(goos string) string {
@@ -53,32 +87,4 @@ func mapArch(goarch string) string {
 	default:
 		return ""
 	}
-}
-
-// Checks if trivy is present in the $PATH variable
-func IsTrivyInstalled() bool {
-	if _, err := exec.LookPath("trivy"); err != nil {
-		fmt.Println("Container image scanner is not installed or not found in $PATH. Installing It...")
-		return false
-	}
-	return true
-}
-
-func IsValidDomain(domain string) bool {
-	// regex for domain name validation
-	re := regexp.MustCompile(`^https:\/\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
-	return re.MatchString(domain)
-}
-
-// Installs trivy at $HOME/.accuknox-config/container-scanner
-func installTrivy() error {
-	binaryPath, err := getBinaryPath()
-	if err != nil {
-		return fmt.Errorf("error while creating binary path: %v", err)
-	}
-	if err := DownloadAndInstallBinary(GetTrivyDownloadURL(defaultTrivyVersion),
-		filepath.Join(binaryPath, "trivy")); err != nil {
-		return err
-	}
-	return nil
 }

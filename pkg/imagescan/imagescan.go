@@ -28,14 +28,12 @@ func DiscoverAndScan(conf kubesheildScanner.ScanConfig, hostName, runtime string
 		}
 	}()
 
-	// Install trivy if it is not exists
+	// Resolve and expose the embedded trivy binary if not already in PATH.
 	if !IsTrivyInstalled() {
 		if err := installTrivy(); err != nil {
-			return fmt.Errorf("error while installing container image scanner: %v", err)
+			return fmt.Errorf("error while resolving container image scanner: %v", err)
 		}
-		zapLogger.Info("Dowloaded container image scanner successfully")
-		// Remove trivy binary, if it is installed by knoxctl
-		defer cleanupInstalledBinaryPath()
+		zapLogger.Info("Container image scanner ready")
 	}
 
 	conf.Images = discoverImages(hostName, runtime, onlyRunningContainers, onlyImages, zapLogger.Sugar())

@@ -7,11 +7,14 @@ type Config struct {
 
 // Tool defines a single external tool bundled with knoxctl.
 // install_as is the filename written to disk; it can be overridden per platform entry.
+// builtin: true marks tools whose binary is built from source (e.g. a git submodule)
+// rather than downloaded; EnsureInstalled will not attempt a network download for them.
 type Tool struct {
 	Name        string              `yaml:"name"`
 	Description string              `yaml:"description"`
 	InstallAs   string              `yaml:"install_as"`
 	Version     string              `yaml:"version"`
+	Builtin     bool                `yaml:"builtin"`   // binary is built from source, not downloaded
 	Platforms   map[string]Platform `yaml:"platforms"` // keyed by GOOS
 }
 

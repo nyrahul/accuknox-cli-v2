@@ -1,3 +1,9 @@
 [submodule "pkg/vm/RRA"]
 	path = pkg/vm/RRA
 	url = https://github.com/accuknox/RAT.git
+[submodule "pkg/cbom/cbomkit-theia"]
+	path = pkg/cbom/cbomkit-theia
+	url = https://github.com/cbomkit/cbomkit-theia.git
+[submodule "pkg/imagescan/trivy"]
+	path = pkg/imagescan/trivy
+	url = https://github.com/aquasecurity/trivy.git

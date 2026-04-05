@@ -19,14 +19,27 @@ export GIT_CONFIG_KEY_0 = url.git@github.com:.insteadOf
 export GIT_CONFIG_VALUE_0 = https://github.com/
 endif
 
-# Compile RRA submodule beforehand for embeding in Knoxctl
-RRADIR := $(CURDIR)/pkg/vm
+# Compile RRA submodule beforehand for embedding in Knoxctl
+RRADIR      := $(CURDIR)/pkg/vm
+# Compile cbomkit-theia submodule beforehand for embedding in Knoxctl
+CBOMDIR     := $(CURDIR)/pkg/cbom
+# Compile trivy submodule beforehand for embedding in Knoxctl (as imgscan)
+IMGSCANDIR  := $(CURDIR)/pkg/imagescan
+
+# Resolve the imgscan binary name (imgscan.exe on Windows, imgscan elsewhere)
+ifeq ($(GOOS),windows)
+IMGSCAN_BIN := imgscan.exe
+else
+IMGSCAN_BIN := imgscan
+endif
 
 .DEFAULT_GOAL := build
 
 prebuild:
 	git submodule update --init --recursive
 	cd $(RRADIR)/RRA; go mod tidy; CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s ${GIT_INFO}" -o $(RRADIR)/rra-agent
+	cd $(CBOMDIR)/cbomkit-theia; go mod tidy; CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o $(CBOMDIR)/cbomkit-theia-bin
+	cd $(IMGSCANDIR)/trivy; go mod tidy; CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o $(CURDIR)/pkg/tools/bins/$(IMGSCAN_BIN) ./cmd/trivy/
 	touch $(CURDIR)/pkg/tools/bins/placeholder
 
 ifeq (, $(shell which govvv))
@@ -90,7 +103,7 @@ ifeq (, $(shell which gosec))
 	rm -rf $$GOSEC_TMP_DIR ;\
 	}
 endif
-	cd $(CURDIR);gosec -exclude-dir=pkg/vm/RRA ./... 
+	cd $(CURDIR);gosec -exclude-dir=pkg/vm/RRA -exclude-dir=pkg/cbom/cbomkit-theia -exclude-dir=pkg/imagescan/trivy ./...
 
 .PHONY: test 
 test: prebuild

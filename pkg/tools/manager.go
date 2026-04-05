@@ -62,16 +62,19 @@ func (t *Tool) ResolveForPlatform(goos, goarch string) (*PlatformConfig, string,
 }
 
 // EnsureInstalled returns a path to the tool binary, extracting or downloading
-// it as needed. Lookup order:
+// it as needed.
+//
+// For builtin tools (builtin: true in tools.yaml), the binary is built from
+// source (e.g. a git submodule) and embedded at build time. Only the embedded
+// extraction and side-by-side paths are attempted; no network download is done.
+//
+// For downloaded tools, the lookup order is:
 //  1. Embedded in the knoxctl binary (via //go:embed bins) → extract to versioned cache
 //  2. Next to the knoxctl executable (manual side-by-side deployment)
 //  3. ~/.accuknox-config/tools/ (previously downloaded at runtime)
 //  4. Download from source URL to ~/.accuknox-config/tools/
 func (t *Tool) EnsureInstalled() (string, error) {
-	cfg, installAs, err := t.ResolveForPlatform(runtime.GOOS, runtime.GOARCH)
-	if err != nil {
-		return "", err
-	}
+	installAs := t.installAsForPlatform()
 
 	// 1. Extract from the binary embedded at build time.
 	if path, err := t.extractEmbedded(installAs); err == nil {
@@ -84,6 +87,16 @@ func (t *Tool) EnsureInstalled() (string, error) {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil
 		}
+	}
+
+	if t.Builtin {
+		return "", fmt.Errorf("%s binary is not embedded — run 'make prebuild' to build it from the submodule", t.Name)
+	}
+
+	// Resolve platform-specific download config for steps 3 and 4.
+	cfg, _, err := t.ResolveForPlatform(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return "", err
 	}
 
 	// 3. Check the user's runtime download cache.
@@ -103,6 +116,20 @@ func (t *Tool) EnsureInstalled() (string, error) {
 	}
 	fmt.Printf("Installed %s to %s\n", t.Name, cached)
 	return cached, nil
+}
+
+// installAsForPlatform returns the install filename for the current platform,
+// falling back to the tool-level InstallAs when no per-platform override exists.
+func (t *Tool) installAsForPlatform() string {
+	if platform, ok := t.Platforms[runtime.GOOS]; ok {
+		if cfg, ok := platform[runtime.GOARCH]; ok && cfg.InstallAs != "" {
+			return cfg.InstallAs
+		}
+	}
+	if runtime.GOOS == "windows" && !strings.HasSuffix(t.InstallAs, ".exe") {
+		return t.InstallAs + ".exe"
+	}
+	return t.InstallAs
 }
 
 // extractEmbedded reads the tool binary from binsFS (embedded at build time),
