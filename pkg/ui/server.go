@@ -4,6 +4,7 @@
 package ui
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -128,13 +129,13 @@ func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	send("progress", progress(10, "Initialising pkgscan…"))
+	send("progress", progress(10, "Initialising Software BOM generation…"))
 	flush()
 	if ctxDone(r.Context(), send, flush) {
 		return
 	}
 
-	// pkgscan (syft) writes output via "-o format=file".
+	// pkgscan writes output via "-o format=file".
 	tmpDir, err := os.MkdirTemp("", "knoxctl-sbom-*")
 	if err != nil {
 		send("error", errMsg(err))
@@ -161,7 +162,7 @@ func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	send("progress", progress(20, "Running pkgscan (syft) on "+source+"…"))
+	send("progress", progress(20, "Scanning "+source+" for packages…"))
 	flush()
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
@@ -204,10 +205,10 @@ func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Count top-level components (works for both cyclonedx-json and syft-json).
+	// Count top-level components (works for cyclonedx-json, pkgscan-json, and spdx).
 	var parsed struct {
 		Components *[]json.RawMessage `json:"components"`     // CycloneDX
-		Artifacts  *[]json.RawMessage `json:"artifacts"`      // Syft native
+		Artifacts  *[]json.RawMessage `json:"artifacts"`      // pkgscan native
 		Packages   *[]json.RawMessage `json:"packages"`       // SPDX
 	}
 	count := 0
@@ -222,8 +223,37 @@ func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Rebrand tool metadata: replace syft/Anchore references with knoxctl/AccuKnox.
+	bomJSON = rebrandSBOM(bomJSON)
+
 	send("complete", buildComplete(count, bomJSON, req.signReq))
 	flush()
+}
+
+// rebrandSBOM replaces vendor-specific tool names in an SBOM JSON with AccuKnox branding.
+// It operates as a simple string replacement on the raw JSON bytes so it works across all
+// output formats (CycloneDX, SPDX, pkgscan-native) without needing format-specific parsing.
+func rebrandSBOM(data []byte) []byte {
+	replacements := [][2]string{
+		{"Anchore, Inc.", "AccuKnox"},
+		{"Anchore Inc.", "AccuKnox"},
+		{"Anchore", "AccuKnox"},
+		{"anchore", "accuknox"},
+		{"github.com/anchore/syft", "github.com/accuknox/knoxctl"},
+		{"github.com/anchore", "github.com/accuknox"},
+		{"https://github.com/anchore/syft", "https://github.com/accuknox/knoxctl"},
+		{"syft-", "knoxctl-"},
+		{"syft/", "knoxctl/"},
+		{`"syft"`, `"knoxctl"`},
+		{"\"name\":\"syft\"", "\"name\":\"knoxctl\""},
+		{"Syft", "knoxctl"},
+		{"syft", "knoxctl"},
+	}
+	out := data
+	for _, r := range replacements {
+		out = bytes.ReplaceAll(out, []byte(r[0]), []byte(r[1]))
+	}
+	return out
 }
 
 func (s *Server) handleCBOMSource(w http.ResponseWriter, r *http.Request) {

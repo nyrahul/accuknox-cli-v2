@@ -274,7 +274,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     Cryptography BOM
   </div>
   <div class="sb-item" data-section="aibom" onclick="nav(this)">
-    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="5" y2="17"/><line x1="12" y1="7" x2="19" y2="17"/><line x1="5" y1="17" x2="19" y2="17"/></svg>
     AI / ML BOM
   </div>
 
@@ -349,6 +349,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         </div>
         <div class="card-sub">Jump to a common task</div>
         <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-secondary" onclick="nav(null,'sbom')">Generate Software BOM from filesystem or image</button>
           <button class="btn btn-secondary" onclick="nav(null,'cbom')">Generate Cryptography BOM from source</button>
           <button class="btn btn-secondary" onclick="nav(null,'aibom')">Generate AI/ML BOM from HuggingFace</button>
           <button class="btn btn-secondary" onclick="nav(null,'probe')">Run environment security probe</button>
@@ -377,7 +378,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     <div class="page-sub">Inventory all software components, dependencies, and packages.</div>
     <div class="alert alert-info">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <div>Software BOM generation uses <strong>pkgscan</strong> (Anchore Syft) to catalogue all packages and dependencies in a filesystem or container image, producing a CycloneDX / SPDX SBOM.</div>
+      <div>Software BOM generation uses <strong>pkgscan</strong> to catalogue all packages and dependencies in a filesystem or container image, producing a CycloneDX / SPDX SBOM.</div>
     </div>
     <div class="card">
       <div class="card-title">Configure SBOM Generation</div>
@@ -405,7 +406,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <select id="sbom-format">
             <option value="cyclonedx-json">CycloneDX JSON</option>
             <option value="spdx-json">SPDX JSON</option>
-            <option value="syft-json">Syft JSON</option>
+            <option value="syft-json">pkgscan JSON</option>
             <option value="spdx-tag-value">SPDX Tag-Value</option>
           </select>
         </div>
@@ -1154,7 +1155,11 @@ function showOutput(prefix, content) {
   const wrap = document.getElementById(`${prefix}-out-wrap`);
   const box = document.getElementById(`${prefix}-out`);
   if (wrap) wrap.classList.add('show');
-  if (box) box.textContent = content;
+  if (box) {
+    let display = content;
+    try { display = JSON.stringify(JSON.parse(content), null, 2); } catch(_) {}
+    box.textContent = display;
+  }
 }
 function clearOutput(prefix) {
   const wrap = document.getElementById(`${prefix}-out-wrap`);

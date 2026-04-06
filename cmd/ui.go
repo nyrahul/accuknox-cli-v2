@@ -4,12 +4,15 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/accuknox/accuknox-cli-v2/pkg/ui"
 	"github.com/accuknox/accuknox-cli-v2/pkg/version"
 	"github.com/spf13/cobra"
 )
 
 var uiAddr string
+var uiPort int
 
 var uiCmd = &cobra.Command{
 	Use:   "ui",
@@ -25,7 +28,11 @@ var uiCmd = &cobra.Command{
 		if ver == "" {
 			ver = "dev"
 		}
-		srv := ui.NewServer(uiAddr, ver)
+		addr := uiAddr
+		if cmd.Flags().Changed("port") {
+			addr = fmt.Sprintf("0.0.0.0:%d", uiPort)
+		}
+		srv := ui.NewServer(addr, ver)
 		return srv.Start()
 	},
 }
@@ -33,4 +40,5 @@ var uiCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(uiCmd)
 	uiCmd.Flags().StringVar(&uiAddr, "addr", "0.0.0.0:10100", "Address and port for the UI server to listen on")
+	uiCmd.Flags().IntVar(&uiPort, "port", 10100, "Port for the UI server to listen on (overrides --addr port)")
 }
