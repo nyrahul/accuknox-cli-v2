@@ -199,6 +199,30 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
 [data-theme=dark] .alert-info{background:rgba(0,86,184,.15);border-color:rgba(0,86,184,.3)}
 [data-theme=dark] .alert-warn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3)}
 
+/* ── Execution Log ───────────────────────────────────────────────────────────── */
+.exec-log-wrap{margin-top:12px;border:1px solid var(--border);border-radius:8px;overflow:hidden;display:none}
+.exec-log-wrap.show{display:block}
+.exec-log-header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);user-select:none;transition:background .15s}
+.exec-log-header:hover{background:var(--border)}
+.exec-log-chevron{transition:transform .2s;flex-shrink:0}
+.exec-log-wrap.open .exec-log-chevron{transform:rotate(90deg)}
+.exec-log-body{display:none;border-top:1px solid var(--border)}
+.exec-log-wrap.open .exec-log-body{display:block}
+.exec-log-scroll{max-height:280px;overflow-y:auto;padding:10px 14px;background:#0f172a;font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:11.5px;line-height:1.65;color:#94a3b8}
+.exec-log-line{padding:1px 0;white-space:pre-wrap;word-break:break-all}
+.exec-log-line.err{color:#f87171}
+.exec-log-line.ok{color:#4ade80}
+.exec-log-badge{margin-left:auto;font-size:10px;padding:1px 7px;border-radius:10px;background:var(--brand-light);color:var(--brand);font-weight:700}
+
+/* ── Command Preview ─────────────────────────────────────────────────────────── */
+.cmd-preview{margin-top:14px;border:1px solid #1e293b;border-radius:8px;overflow:hidden}
+.cmd-preview-header{display:flex;align-items:center;gap:7px;padding:6px 12px;background:#1e293b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;transition:border-bottom .15s}
+.cmd-preview.modified .cmd-preview-header{border-bottom:2px solid #f59e0b}
+.cmd-preview-edited-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:#f59e0b;color:#fff;font-weight:700;display:none}
+.cmd-preview.modified .cmd-preview-edited-badge{display:inline}
+.cmd-preview-body{display:block;padding:10px 14px;background:#0f172a;color:#e2e8f0;font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:12px;line-height:1.65;min-height:52px;width:100%;border:none;outline:none;resize:vertical;cursor:text;white-space:pre;overflow-x:auto}
+.cmd-preview-body:focus{background:#080e1a;box-shadow:inset 0 0 0 2px rgba(59,130,246,.35)}
+
 /* ── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -353,31 +377,42 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     <div class="page-sub">Inventory all software components, dependencies, and packages.</div>
     <div class="alert alert-info">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <div>Software BOM generation scans the project for all declared software components and their licenses, producing a CycloneDX-compliant SBOM.</div>
+      <div>Software BOM generation uses <strong>pkgscan</strong> (Anchore Syft) to catalogue all packages and dependencies in a filesystem or container image, producing a CycloneDX / SPDX SBOM.</div>
     </div>
     <div class="card">
       <div class="card-title">Configure SBOM Generation</div>
-      <div class="card-sub">Specify the target to scan</div>
+      <div class="card-sub">Specify the target and output options</div>
       <div class="form-grid">
         <div class="field">
-          <label>Source Path</label>
-          <input type="text" id="sbom-path" placeholder="./  (current directory)" value="."/>
-          <small>Directory or file path to scan for software components</small>
+          <label>Source</label>
+          <input type="text" id="sbom-source" placeholder="./  or  nginx:latest" value="."/>
+          <small>Directory path, container image reference, or archive file</small>
+        </div>
+        <div class="field">
+          <label>Source Scheme</label>
+          <select id="sbom-scheme">
+            <option value="">Auto-detect</option>
+            <option value="dir">dir — local directory</option>
+            <option value="registry">registry — container registry</option>
+            <option value="docker">docker — Docker daemon</option>
+            <option value="file">file — single file / archive</option>
+            <option value="oci-archive">oci-archive — OCI tar archive</option>
+            <option value="oci-dir">oci-dir — OCI layout directory</option>
+          </select>
         </div>
         <div class="field">
           <label>Output Format</label>
           <select id="sbom-format">
-            <option value="json">CycloneDX JSON</option>
-            <option value="table">Table Summary</option>
+            <option value="cyclonedx-json">CycloneDX JSON</option>
+            <option value="spdx-json">SPDX JSON</option>
+            <option value="syft-json">Syft JSON</option>
+            <option value="spdx-tag-value">SPDX Tag-Value</option>
           </select>
         </div>
         <div class="field">
-          <label>Project Name</label>
-          <input type="text" id="sbom-name" placeholder="my-project"/>
-        </div>
-        <div class="field">
-          <label>Project Version</label>
-          <input type="text" id="sbom-ver" placeholder="1.0.0"/>
+          <label>Exclude Patterns <span style="font-weight:400;text-transform:none">(optional)</span></label>
+          <input type="text" id="sbom-exclude" placeholder="**/*.test, vendor/**"/>
+          <small>Comma-separated glob patterns to exclude from scanning</small>
         </div>
       </div>
       <div class="sign-toggle">
@@ -396,6 +431,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="sbom-sign-pass" placeholder="Leave blank for no passphrase"/></div>
         </div>
       </div>
+      <div class="cmd-preview">
+        <div class="cmd-preview-header">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          CLI Preview
+          <span class="cmd-preview-edited-badge">edited</span>
+          <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('sbom')">Copy</button></span>
+        </div>
+        <textarea class="cmd-preview-body" spellcheck="false" id="preview-sbom"></textarea>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" id="sbom-btn" onclick="runSBOM()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -407,6 +451,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       <div class="progress-wrap" id="sbom-prog">
         <div class="progress-label"><span id="sbom-prog-msg">Initialising…</span><span id="sbom-prog-pct">0%</span></div>
         <div class="progress-bar"><div class="progress-fill running" id="sbom-prog-fill"></div></div>
+      </div>
+      <div class="exec-log-wrap" id="sbom-exec-wrap">
+        <div class="exec-log-header" onclick="toggleExecLog('sbom')">
+          <svg class="exec-log-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          Execution Log
+          <span class="exec-log-badge" id="sbom-exec-badge"></span>
+        </div>
+        <div class="exec-log-body"><div class="exec-log-scroll" id="sbom-exec-log"></div></div>
       </div>
     </div>
     <div class="output-wrap" id="sbom-out-wrap">
@@ -486,6 +538,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="cs-sign-pass" placeholder="Leave blank for no passphrase"/></div>
           </div>
         </div>
+        <div class="cmd-preview">
+          <div class="cmd-preview-header">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            CLI Preview
+            <span class="cmd-preview-edited-badge">edited</span>
+            <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('cbom-src')">Copy</button></span>
+          </div>
+          <textarea class="cmd-preview-body" spellcheck="false" id="preview-cbom-src"></textarea>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="cs-btn" onclick="runCBOMSource()">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -497,6 +558,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         <div class="progress-wrap" id="cbom-prog">
           <div class="progress-label"><span id="cbom-prog-msg">Initialising…</span><span id="cbom-prog-pct">0%</span></div>
           <div class="progress-bar"><div class="progress-fill running" id="cbom-prog-fill"></div></div>
+        </div>
+        <div class="exec-log-wrap" id="cbom-exec-wrap">
+          <div class="exec-log-header" onclick="toggleExecLog('cbom')">
+            <svg class="exec-log-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            Execution Log
+            <span class="exec-log-badge" id="cbom-exec-badge"></span>
+          </div>
+          <div class="exec-log-body"><div class="exec-log-scroll" id="cbom-exec-log"></div></div>
         </div>
       </div>
     </div>
@@ -540,6 +609,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="ci-sign-pass" placeholder="Leave blank for no passphrase"/></div>
           </div>
         </div>
+        <div class="cmd-preview">
+          <div class="cmd-preview-header">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            CLI Preview
+            <span class="cmd-preview-edited-badge">edited</span>
+            <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('cbom-img')">Copy</button></span>
+          </div>
+          <textarea class="cmd-preview-body" spellcheck="false" id="preview-cbom-img"></textarea>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="ci-btn" onclick="runCBOMImage()">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -551,6 +629,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         <div class="progress-wrap" id="cbom-img-prog">
           <div class="progress-label"><span id="cbom-img-prog-msg">Initialising…</span><span id="cbom-img-prog-pct">0%</span></div>
           <div class="progress-bar"><div class="progress-fill running" id="cbom-img-prog-fill"></div></div>
+        </div>
+        <div class="exec-log-wrap" id="cbom-img-exec-wrap">
+          <div class="exec-log-header" onclick="toggleExecLog('cbom-img')">
+            <svg class="exec-log-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            Execution Log
+            <span class="exec-log-badge" id="cbom-img-exec-badge"></span>
+          </div>
+          <div class="exec-log-body"><div class="exec-log-scroll" id="cbom-img-exec-log"></div></div>
         </div>
       </div>
     </div>
@@ -622,6 +708,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <div class="sign-field"><label>Key passphrase <span style="font-weight:400;text-transform:none">(optional)</span></label><input type="password" id="ai-sign-pass" placeholder="Leave blank for no passphrase"/></div>
         </div>
       </div>
+      <div class="cmd-preview">
+        <div class="cmd-preview-header">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          CLI Preview
+          <span class="cmd-preview-edited-badge">edited</span>
+          <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('aibom')">Copy</button></span>
+        </div>
+        <textarea class="cmd-preview-body" spellcheck="false" id="preview-aibom"></textarea>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" id="ai-btn" onclick="runAIBOM()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -633,6 +728,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       <div class="progress-wrap" id="aibom-prog">
         <div class="progress-label"><span id="aibom-prog-msg">Initialising…</span><span id="aibom-prog-pct">0%</span></div>
         <div class="progress-bar"><div class="progress-fill running" id="aibom-prog-fill"></div></div>
+      </div>
+      <div class="exec-log-wrap" id="aibom-exec-wrap">
+        <div class="exec-log-header" onclick="toggleExecLog('aibom')">
+          <svg class="exec-log-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          Execution Log
+          <span class="exec-log-badge" id="aibom-exec-badge"></span>
+        </div>
+        <div class="exec-log-body"><div class="exec-log-scroll" id="aibom-exec-log"></div></div>
       </div>
     </div>
 
@@ -686,6 +789,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <input type="text" id="vm-cp-tenant" placeholder="tenant-id"/>
           </div>
         </div>
+        <div class="cmd-preview">
+          <div class="cmd-preview-header">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            CLI Preview
+            <span class="cmd-preview-edited-badge">edited</span>
+            <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('vm-cp')">Copy</button></span>
+          </div>
+          <textarea class="cmd-preview-body" spellcheck="false" id="preview-vm-cp"></textarea>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="vm-cp-btn" onclick="runVM('onboard-vm-cp-node','vm-cp')">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -714,6 +826,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
             <input type="text" id="vm-wn-join" placeholder="Obtained from CP node onboarding"/>
           </div>
         </div>
+        <div class="cmd-preview">
+          <div class="cmd-preview-header">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            CLI Preview
+            <span class="cmd-preview-edited-badge">edited</span>
+            <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('vm-wn')">Copy</button></span>
+          </div>
+          <textarea class="cmd-preview-body" spellcheck="false" id="preview-vm-wn"></textarea>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="vm-wn-btn" onclick="runVM('onboard-vm-node','vm-wn')">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -725,6 +846,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     <div class="progress-wrap" id="vm-prog">
       <div class="progress-label"><span id="vm-prog-msg">Running…</span><span id="vm-prog-pct"></span></div>
       <div class="progress-bar"><div class="progress-fill running" id="vm-prog-fill" style="width:100%;animation:stripe 1s linear infinite"></div></div>
+    </div>
+    <div class="exec-log-wrap" id="vm-exec-wrap">
+      <div class="exec-log-header" onclick="toggleExecLog('vm')">
+        <svg class="exec-log-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        Execution Log
+        <span class="exec-log-badge" id="vm-exec-badge"></span>
+      </div>
+      <div class="exec-log-body"><div class="exec-log-scroll" id="vm-exec-log"></div></div>
     </div>
     <div class="output-wrap" id="vm-out-wrap">
       <div class="output-header"><div class="output-label">Output</div></div>
@@ -756,6 +885,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           </select>
         </div>
       </div>
+      <div class="cmd-preview">
+        <div class="cmd-preview-header">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          CLI Preview
+          <span class="cmd-preview-edited-badge">edited</span>
+          <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('probe')">Copy</button></span>
+        </div>
+        <textarea class="cmd-preview-body" spellcheck="false" id="preview-probe"></textarea>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" id="probe-btn" onclick="runProbe()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -766,6 +904,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       <div class="progress-wrap" id="probe-prog">
         <div class="progress-label"><span id="probe-prog-msg">Probing environment…</span></div>
         <div class="progress-bar"><div class="progress-fill running" id="probe-prog-fill" style="width:100%"></div></div>
+      </div>
+      <div class="exec-log-wrap" id="probe-exec-wrap">
+        <div class="exec-log-header" onclick="toggleExecLog('probe')">
+          <svg class="exec-log-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          Execution Log
+          <span class="exec-log-badge" id="probe-exec-badge"></span>
+        </div>
+        <div class="exec-log-body"><div class="exec-log-scroll" id="probe-exec-log"></div></div>
       </div>
     </div>
     <div class="output-wrap" id="probe-out-wrap">
@@ -804,6 +950,15 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           </select>
         </div>
       </div>
+      <div class="cmd-preview">
+        <div class="cmd-preview-header">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          CLI Preview
+          <span class="cmd-preview-edited-badge">edited</span>
+          <span style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-ghost cmd-preview-reset" style="padding:2px 8px;font-size:11px;display:none" onclick="resetPreview(this)">↺ Reset</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreview('scan')">Copy</button></span>
+        </div>
+        <textarea class="cmd-preview-body" spellcheck="false" id="preview-scan"></textarea>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" id="scan-btn" onclick="runScan()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21 5,3"/></svg>
@@ -815,6 +970,14 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       <div class="progress-wrap" id="scan-prog">
         <div class="progress-label"><span id="scan-prog-msg">Initialising scanner…</span></div>
         <div class="progress-bar"><div class="progress-fill running" id="scan-prog-fill" style="width:100%"></div></div>
+      </div>
+      <div class="exec-log-wrap" id="scan-exec-wrap">
+        <div class="exec-log-header" onclick="toggleExecLog('scan')">
+          <svg class="exec-log-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          Execution Log
+          <span class="exec-log-badge" id="scan-exec-badge"></span>
+        </div>
+        <div class="exec-log-body"><div class="exec-log-scroll" id="scan-exec-log"></div></div>
       </div>
     </div>
     <div class="output-wrap" id="scan-out-wrap">
@@ -1002,6 +1165,7 @@ function clearOutput(prefix) {
   if (box) box.textContent = '';
   if (prog) { prog.classList.remove('show'); const f = document.getElementById(`${prefix}-prog-fill`); if(f){f.style.width='0';f.style.background='';} }
   if (cnt) cnt.textContent = '';
+  clearExecLog(prefix);
 }
 function appendLog(containerId, line, isErr) {
   const el = document.getElementById(containerId);
@@ -1018,6 +1182,7 @@ function clearLog(prefix) {
   if (box) box.innerHTML = '';
   if (wrap) wrap.classList.remove('show');
   hideProgress(prefix);
+  clearExecLog(prefix);
 }
 function copyOutput(id) {
   const el = document.getElementById(id);
@@ -1066,7 +1231,7 @@ function sseRun(url, body, progPrefix, onComplete, onError) {
             if (ev === 'progress') showProgress(progPrefix, data.percent, data.message);
             else if (ev === 'complete') { delete _controllers[progPrefix]; completeProgress(progPrefix); onComplete(data); }
             else if (ev === 'error') { delete _controllers[progPrefix]; errorProgress(progPrefix, data.message); onError(data.message); }
-            else if (ev === 'log') onComplete({ log: data.line });
+            else if (ev === 'log') { appendExecLog(progPrefix, data.line); onComplete({ log: data.line }); }
           });
           pump();
         }).catch(err => {
@@ -1115,15 +1280,16 @@ function opEnd(startId, stopId) {
 
 /* ── SBOM ──────────────────────────────────────────────────────────────────── */
 function runSBOM() {
+  if (_cmdLocked['sbom']) { runEditedCmd('sbom-btn','sbom-stop','sbom', document.getElementById('preview-sbom')?.value||''); return; }
   opStart('sbom-btn', 'sbom-stop');
   clearOutput('sbom');
   showSignResult('sbom', {});
   showProgress('sbom', 5, 'Initialising…');
   sseRun('/api/sbom/generate', {
-    path:    v('sbom-path') || '.',
-    name:    v('sbom-name'),
-    version: v('sbom-ver'),
-    format:  v('sbom-format') || 'json',
+    source:  v('sbom-source') || '.',
+    scheme:  v('sbom-scheme'),
+    format:  v('sbom-format') || 'cyclonedx-json',
+    exclude: v('sbom-exclude'),
     ...getSignParams('sbom'),
   },
   'sbom',
@@ -1142,6 +1308,7 @@ function runSBOM() {
 
 /* ── CBOM source ───────────────────────────────────────────────────────────── */
 function runCBOMSource() {
+  if (_cmdLocked['cbom-src']) { runEditedCmd('cs-btn','cs-stop','cbom', document.getElementById('preview-cbom-src')?.value||''); return; }
   opStart('cs-btn', 'cs-stop');
   clearOutput('cbom');
   showSignResult('cbom', {});
@@ -1171,6 +1338,7 @@ function runCBOMSource() {
 
 /* ── CBOM image ────────────────────────────────────────────────────────────── */
 function runCBOMImage() {
+  if (_cmdLocked['cbom-img']) { runEditedCmd('ci-btn','ci-stop','cbom-img', document.getElementById('preview-cbom-img')?.value||''); return; }
   if (!v('ci-image')) { alert('Please enter an image reference.'); return; }
   opStart('ci-btn', 'ci-stop');
   clearOutput('cbom');
@@ -1199,6 +1367,7 @@ function runCBOMImage() {
 
 /* ── AIBOM ─────────────────────────────────────────────────────────────────── */
 function runAIBOM() {
+  if (_cmdLocked['aibom']) { runEditedCmd('ai-btn','ai-stop','aibom', document.getElementById('preview-aibom')?.value||''); return; }
   if (!v('ai-model')) { alert('Please enter a model identifier.'); return; }
   opStart('ai-btn', 'ai-stop');
   clearOutput('aibom');
@@ -1228,6 +1397,8 @@ function runAIBOM() {
 
 /* ── VM ────────────────────────────────────────────────────────────────────── */
 function runVM(subCmd, prefix) {
+  const previewId = prefix; // 'vm-cp' or 'vm-wn'
+  if (_cmdLocked[previewId]) { runEditedCmd(prefix+'-btn', null, 'vm', document.getElementById('preview-'+previewId)?.value||''); return; }
   const logEl = document.getElementById('vm-out');
   const wrap = document.getElementById('vm-out-wrap');
   logEl.innerHTML = '';
@@ -1256,6 +1427,7 @@ function runVM(subCmd, prefix) {
 
 /* ── Probe ─────────────────────────────────────────────────────────────────── */
 function runProbe() {
+  if (_cmdLocked['probe']) { runEditedCmd('probe-btn','probe-stop','probe', document.getElementById('preview-probe')?.value||''); return; }
   const wrap = document.getElementById('probe-out-wrap');
   const logEl = document.getElementById('probe-out');
   logEl.innerHTML = '';
@@ -1276,6 +1448,7 @@ function runProbe() {
 
 /* ── Image Scan ────────────────────────────────────────────────────────────── */
 function runScan() {
+  if (_cmdLocked['scan']) { runEditedCmd('scan-btn','scan-stop','scan', document.getElementById('preview-scan')?.value||''); return; }
   if (!v('scan-image')) { alert('Please enter an image reference.'); return; }
   const wrap = document.getElementById('scan-out-wrap');
   const logEl = document.getElementById('scan-out');
@@ -1299,6 +1472,269 @@ function runScan() {
   );
 }
 
+/* ── Execution Log ─────────────────────────────────────────────────────────── */
+const _execCounts = {};
+
+function clearExecLog(prefix) {
+  const wrap  = document.getElementById(`${prefix}-exec-wrap`);
+  const log   = document.getElementById(`${prefix}-exec-log`);
+  const badge = document.getElementById(`${prefix}-exec-badge`);
+  if (wrap)  wrap.classList.remove('show', 'open');
+  if (log)   log.innerHTML = '';
+  if (badge) badge.textContent = '';
+  _execCounts[prefix] = 0;
+}
+
+function appendExecLog(prefix, line, isErr) {
+  const wrap  = document.getElementById(`${prefix}-exec-wrap`);
+  const log   = document.getElementById(`${prefix}-exec-log`);
+  const badge = document.getElementById(`${prefix}-exec-badge`);
+  if (!wrap || !log) return;
+  // Show and auto-expand on first line.
+  if (!wrap.classList.contains('show')) {
+    wrap.classList.add('show', 'open');
+    _execCounts[prefix] = 0;
+  }
+  const div = document.createElement('div');
+  div.className = 'exec-log-line' + (isErr ? ' err' : '');
+  div.textContent = line;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  _execCounts[prefix] = (_execCounts[prefix] || 0) + 1;
+  if (badge) badge.textContent = _execCounts[prefix];
+}
+
+function toggleExecLog(prefix) {
+  const wrap = document.getElementById(`${prefix}-exec-wrap`);
+  if (wrap) wrap.classList.toggle('open');
+}
+
+/* ── Command Preview ───────────────────────────────────────────────────────── */
+
+// Quote a shell argument if it contains whitespace or special chars.
+function shellQ(s) {
+  if (!s) return '';
+  return /[\s"'\\]/.test(s) ? '"' + s.replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"' : s;
+}
+
+// Build sign flag parts for a given form prefix.
+function buildSignParts(prefix) {
+  const cb = document.getElementById(`${prefix}-sign`);
+  if (!cb?.checked) return [];
+  const radios = document.querySelectorAll(`input[name="${prefix}-sign-mode"]`);
+  const mode = [...radios].find(r => r.checked)?.value || 'generate';
+  const parts = ['--sign'];
+  if (mode === 'generate') {
+    parts.push('--sign-generate-key');
+  } else {
+    const key = v(`${prefix}-sign-key`);
+    if (key) parts.push('--sign-key ' + shellQ(key));
+  }
+  if (v(`${prefix}-sign-pass`)) parts.push('--sign-key-password ***');
+  return parts;
+}
+
+// Join parts into a readable multi-line shell command.
+function fmtCmd(parts) {
+  const filtered = parts.filter(Boolean);
+  if (filtered.length <= 1) return filtered.join('');
+  return filtered[0] + ' \\\n  ' + filtered.slice(1).join(' \\\n  ');
+}
+
+function buildCmdSBOM() {
+  const scheme = v('sbom-scheme');
+  const source = v('sbom-source') || '.';
+  const target = scheme ? scheme + ':' + source : source;
+  const fmt    = v('sbom-format') || 'cyclonedx-json';
+  const ext    = fmt.startsWith('cyclonedx') ? 'cdx.json' : fmt.startsWith('spdx') ? 'spdx.json' : 'sbom.json';
+  const parts  = ['knoxctl pkgscan scan'];
+  parts.push(shellQ(target));
+  parts.push('-o ' + fmt + '=sbom.' + ext);
+  const excl = v('sbom-exclude');
+  if (excl) excl.split(',').map(p => p.trim()).filter(Boolean).forEach(p => parts.push('--exclude ' + shellQ(p)));
+  buildSignParts('sbom').forEach(p => parts.push(p));
+  return fmtCmd(parts);
+}
+
+function buildCmdCBOMSrc() {
+  const parts = ['knoxctl cbom source'];
+  parts.push('--path ' + shellQ(v('cs-path') || '.'));
+  if (v('cs-name'))    parts.push('--name ' + shellQ(v('cs-name')));
+  if (v('cs-group'))   parts.push('--group ' + shellQ(v('cs-group')));
+  if (v('cs-ver'))     parts.push('--version ' + shellQ(v('cs-ver')));
+  if (v('cs-desc'))    parts.push('--description ' + shellQ(v('cs-desc')));
+  if (v('cs-license')) parts.push('--license ' + shellQ(v('cs-license')));
+  buildSignParts('cs').forEach(p => parts.push(p));
+  return fmtCmd(parts);
+}
+
+function buildCmdCBOMImg() {
+  const parts = ['knoxctl cbom image'];
+  parts.push('--image ' + shellQ(v('ci-image') || '<image>'));
+  if (v('ci-name'))    parts.push('--name ' + shellQ(v('ci-name')));
+  if (v('ci-plugins')) parts.push('--plugins ' + shellQ(v('ci-plugins')));
+  if (v('ci-ignore'))  parts.push('--ignore ' + shellQ(v('ci-ignore')));
+  buildSignParts('ci').forEach(p => parts.push(p));
+  return fmtCmd(parts);
+}
+
+function buildCmdAIBOM() {
+  const parts = ['knoxctl aibom generate'];
+  parts.push('--model ' + shellQ(v('ai-model') || '<model>'));
+  if (v('ai-token'))  parts.push('--token ***');
+  if (v('ai-name'))   parts.push('--name ' + shellQ(v('ai-name')));
+  if (v('ai-ver'))    parts.push('--version ' + shellQ(v('ai-ver')));
+  if (v('ai-mfg'))    parts.push('--manufacturer ' + shellQ(v('ai-mfg')));
+  buildSignParts('ai').forEach(p => parts.push(p));
+  return fmtCmd(parts);
+}
+
+function buildCmdVMCP() {
+  const parts = ['knoxctl onboard-vm-cp-node'];
+  if (v('vm-cp-url'))     parts.push('--url ' + shellQ(v('vm-cp-url')));
+  if (v('vm-cp-cluster')) parts.push('--cluster-name ' + shellQ(v('vm-cp-cluster')));
+  if (v('vm-cp-token'))   parts.push('--auth-token ***');
+  if (v('vm-cp-tenant'))  parts.push('--tenant-id ' + shellQ(v('vm-cp-tenant')));
+  return fmtCmd(parts);
+}
+
+function buildCmdVMWN() {
+  const parts = ['knoxctl onboard-vm-node'];
+  if (v('vm-wn-url'))     parts.push('--url ' + shellQ(v('vm-wn-url')));
+  if (v('vm-wn-cluster')) parts.push('--cluster-name ' + shellQ(v('vm-wn-cluster')));
+  if (v('vm-wn-token'))   parts.push('--auth-token ***');
+  if (v('vm-wn-join'))    parts.push('--join-token ' + shellQ(v('vm-wn-join')));
+  return fmtCmd(parts);
+}
+
+function buildCmdProbe() {
+  const parts = ['knoxctl probe'];
+  parts.push('--namespace ' + shellQ(v('probe-ns') || 'agents'));
+  if (v('probe-full') === '--full') parts.push('--full');
+  return fmtCmd(parts);
+}
+
+function buildCmdScan() {
+  const parts = ['knoxctl image-scan'];
+  parts.push('--image ' + shellQ(v('scan-image') || '<image>'));
+  const fmt = v('scan-format');
+  if (fmt) fmt.split(' ').filter(Boolean).forEach(p => parts.push(p));
+  const sev = v('scan-severity');
+  if (sev) sev.split(' ').filter(Boolean).forEach(p => parts.push(p));
+  return fmtCmd(parts);
+}
+
+// ── Per-preview edit-lock state ──────────────────────────────────────────────
+const _cmdLocked   = {};   // true when user has manually edited the textarea
+const _previewBuildFns = {}; // stores buildFn per previewId for reset
+
+// Update a preview textarea (auto-resizes to fit).
+function updatePreview(id, text) {
+  const el = document.getElementById('preview-' + id);
+  if (!el) return;
+  el.value = text;
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
+}
+
+// Copy preview text to clipboard.
+function copyPreview(id) {
+  const el = document.getElementById('preview-' + id);
+  if (el) navigator.clipboard.writeText(el.value || '').catch(() => {});
+}
+
+// Reset a manually-edited preview back to the auto-generated command.
+// `btn` is the Reset button element — we walk up to find the preview wrapper.
+function resetPreview(btn) {
+  const wrap = btn.closest('.cmd-preview');
+  if (!wrap) return;
+  const ta = wrap.querySelector('.cmd-preview-body');
+  if (!ta) return;
+  const id = ta.id.replace('preview-', '');
+  _cmdLocked[id] = false;
+  wrap.classList.remove('modified');
+  btn.style.display = 'none';
+  const fn = _previewBuildFns[id];
+  if (fn) updatePreview(id, fn());
+}
+
+// Minimal shell tokeniser — handles single/double quotes and backslash escapes.
+// Also strips shell line-continuation sequences (\ + newline).
+function shellSplit(cmd) {
+  const src = cmd.replace(/\\\n\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const args = [];
+  let cur = '', inS = false, inD = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if      (c === "'" && !inD)         { inS = !inS; }
+    else if (c === '"' && !inS)         { inD = !inD; }
+    else if (c === '\\' && !inS)        { cur += src[++i] || ''; }
+    else if (c === ' ' && !inS && !inD) { if (cur) { args.push(cur); cur = ''; } }
+    else                                { cur += c; }
+  }
+  if (cur) args.push(cur);
+  return args;
+}
+
+// Run a manually-edited CLI command via /api/run, streaming output to exec-log.
+function runEditedCmd(startId, stopId, progPrefix, cmdStr) {
+  const args = shellSplit(cmdStr);
+  if (args[0] === 'knoxctl') args.shift();
+  if (!args.length) return;
+  if (startId) { const s = document.getElementById(startId); if (s) s.disabled = true; }
+  if (stopId)  { const x = document.getElementById(stopId);  if (x) x.style.display = ''; }
+  clearExecLog(progPrefix);
+  showProgress(progPrefix, 10, 'Running edited command…');
+  sseRun('/api/run', { args }, progPrefix,
+    data => {
+      if (data.log !== undefined) return;
+      appendExecLog(progPrefix, '✓ ' + (data.message || 'Done'));
+      completeProgress(progPrefix);
+      if (startId) { const s = document.getElementById(startId); if (s) s.disabled = false; }
+      if (stopId)  { const x = document.getElementById(stopId);  if (x) x.style.display = 'none'; }
+    },
+    err => {
+      errorProgress(progPrefix, err);
+      if (startId) { const s = document.getElementById(startId); if (s) s.disabled = false; }
+      if (stopId)  { const x = document.getElementById(stopId);  if (x) x.style.display = 'none'; }
+    }
+  );
+}
+
+// Watch all inputs/selects inside containerId and call buildFn on any change,
+// writing the result to preview-<previewId>.  Also sets up the edit-lock on the
+// preview textarea so manual edits suppress auto-updates.
+function watchPreview(containerId, buildFn, previewId) {
+  _previewBuildFns[previewId] = buildFn;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const refresh = () => {
+    if (!_cmdLocked[previewId]) updatePreview(previewId, buildFn());
+  };
+  container.querySelectorAll('input, select, textarea').forEach(el => {
+    if (el.id === 'preview-' + previewId) return; // skip the preview itself
+    el.addEventListener('input',  refresh);
+    el.addEventListener('change', refresh);
+  });
+
+  // Lock auto-updates when the user types in the preview textarea.
+  const ta = document.getElementById('preview-' + previewId);
+  if (ta) {
+    ta.addEventListener('input', () => {
+      _cmdLocked[previewId] = true;
+      const wrap = ta.closest('.cmd-preview');
+      if (wrap) {
+        wrap.classList.add('modified');
+        const rb = wrap.querySelector('.cmd-preview-reset');
+        if (rb) rb.style.display = '';
+      }
+    });
+  }
+
+  refresh(); // initial render
+}
+
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
 function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 
@@ -1312,6 +1748,15 @@ function v(id) { const el = document.getElementById(id); return el ? el.value.tr
     if (icon) icon.innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
   }
   startConnectionPolling();
+  // Wire up command previews — each watches its own card container.
+  watchPreview('sec-sbom',    buildCmdSBOM,    'sbom');
+  watchPreview('cbom-source-panel', buildCmdCBOMSrc, 'cbom-src');
+  watchPreview('cbom-image-panel',  buildCmdCBOMImg, 'cbom-img');
+  watchPreview('sec-aibom',   buildCmdAIBOM,   'aibom');
+  watchPreview('sec-vm',      buildCmdVMCP,    'vm-cp');
+  watchPreview('sec-vm',      buildCmdVMWN,    'vm-wn');
+  watchPreview('sec-probe',   buildCmdProbe,   'probe');
+  watchPreview('sec-imgscan', buildCmdScan,    'scan');
   // Set dashboard counters
   document.getElementById('dash-sbom').textContent = '0';
   document.getElementById('dash-cbom').textContent = '0';

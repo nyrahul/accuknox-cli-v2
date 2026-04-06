@@ -17,6 +17,32 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
+// GenerateKeyPair creates a fresh ECDSA P-256 key pair and writes the PEM
+// files to <opts.KeyOut>.key and <opts.KeyOut>.pub (prefix defaults to "cosign").
+func GenerateKeyPair(opts *Options) error {
+	prefix := opts.KeyOut
+	if prefix == "" {
+		prefix = "cosign"
+	}
+	password := []byte(opts.Password)
+	passFunc := func(bool) ([]byte, error) { return password, nil }
+
+	kb, err := cosigncrypto.GenerateKeyPair(passFunc)
+	if err != nil {
+		return fmt.Errorf("keygen: generating key pair: %w", err)
+	}
+	privPath := prefix + ".key"
+	pubPath := prefix + ".pub"
+	if err := os.WriteFile(privPath, kb.PrivateBytes, 0600); err != nil {
+		return fmt.Errorf("keygen: writing private key %s: %w", privPath, err)
+	}
+	if err := os.WriteFile(pubPath, kb.PublicBytes, 0600); err != nil {
+		return fmt.Errorf("keygen: writing public key %s: %w", pubPath, err)
+	}
+	fmt.Printf("Generated key pair → %s (private)  %s (public)\n", privPath, pubPath)
+	return nil
+}
+
 // Artifact signs the file at artifactPath according to opts.
 // It is a no-op when opts.Enabled is false or artifactPath is empty.
 //

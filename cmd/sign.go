@@ -19,6 +19,29 @@ library.  Keys are stored as standard PEM files compatible with the cosign CLI.`
 	},
 }
 
+// ── sign keygen ───────────────────────────────────────────────────────────────
+
+var signKeygenOpts sign.Options
+
+var signKeygenCmd = &cobra.Command{
+	Use:   "keygen",
+	Short: "Generate a cosign ECDSA P-256 key pair",
+	Long: `Generate a fresh ECDSA P-256 key pair and write it as PEM files.
+
+Examples:
+  # Write cosign.key + cosign.pub (default)
+  knoxctl sign keygen
+
+  # Write release-signing.key + release-signing.pub
+  knoxctl sign keygen --key-out release-signing
+
+  # Protect the private key with a passphrase
+  knoxctl sign keygen --key-out mykey --key-password secret`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return sign.GenerateKeyPair(&signKeygenOpts)
+	},
+}
+
 // ── sign artifact ──────────────────────────────────────────────────────────────
 
 var signArtifactOpts sign.Options
@@ -70,8 +93,13 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(signCmd)
+	signCmd.AddCommand(signKeygenCmd)
 	signCmd.AddCommand(signArtifactCmd)
 	signCmd.AddCommand(signVerifyCmd)
+
+	// sign keygen flags
+	signKeygenCmd.Flags().StringVar(&signKeygenOpts.KeyOut, "key-out", "cosign", "Filename prefix for generated key pair (<prefix>.key / <prefix>.pub)")
+	signKeygenCmd.Flags().StringVar(&signKeygenOpts.Password, "key-password", "", "Passphrase to protect the private key (empty = no passphrase)")
 
 	// sign artifact flags
 	signArtifactCmd.Flags().StringVar(&signArtifactPath, "file", "", "Path to the file to sign")

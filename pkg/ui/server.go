@@ -106,21 +106,21 @@ func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Path    string `json:"path"`
-		Name    string `json:"name"`
-		Version string `json:"version"`
+		Source  string `json:"source"`
+		Scheme  string `json:"scheme"`
 		Format  string `json:"format"`
+		Exclude string `json:"exclude"`
 		signReq
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, "invalid request: "+err.Error())
 		return
 	}
-	if req.Path == "" {
-		req.Path = "."
+	if req.Source == "" {
+		req.Source = "."
 	}
 	if req.Format == "" {
-		req.Format = "json"
+		req.Format = "cyclonedx-json"
 	}
 
 	send, flush, ok := sseInit(w)
@@ -128,44 +128,101 @@ func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	send("progress", progress(10, "Initialising software BOM scanner…"))
+	send("progress", progress(10, "Initialising pkgscan…"))
 	flush()
 	if ctxDone(r.Context(), send, flush) {
 		return
 	}
 
-	opts := &cbom.Options{
-		Path:    req.Path,
-		Name:    req.Name,
-		Version: req.Version,
-		Format:  "json",
-	}
-
-	send("progress", progress(30, "Scanning source tree for software components…"))
-	flush()
-
-	bom, err := cbom.GenerateFromSource(opts)
+	// pkgscan (syft) writes output via "-o format=file".
+	tmpDir, err := os.MkdirTemp("", "knoxctl-sbom-*")
 	if err != nil {
 		send("error", errMsg(err))
 		flush()
 		return
 	}
-	if ctxDone(r.Context(), send, flush) {
-		return
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+		}
+	}()
+	outFile := filepath.Join(tmpDir, "sbom.json")
+
+	// Prefix source with scheme when explicitly chosen.
+	source := req.Source
+	if req.Scheme != "" {
+		source = req.Scheme + ":" + source
 	}
 
-	send("progress", progress(80, "Building Software BOM…"))
+	args := []string{"pkgscan", "scan", source, "-o", req.Format + "=" + outFile}
+	for _, pat := range strings.Split(req.Exclude, ",") {
+		if pat = strings.TrimSpace(pat); pat != "" {
+			args = append(args, "--exclude", pat)
+		}
+	}
+
+	send("progress", progress(20, "Running pkgscan (syft) on "+source+"…"))
 	flush()
 
-	out, err := json.MarshalIndent(bom, "", "  ")
-	if err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, resolveKnoxctl(), args...) // #nosec G204
+	cmd.Stdout = &lineWriter{send: send, flush: flush, event: "log"}
+	cmd.Stderr = &lineWriter{send: send, flush: flush, event: "log"}
+
+	if err := cmd.Start(); err != nil {
 		send("error", errMsg(err))
 		flush()
 		return
 	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
 
-	count := cbom.ComponentCount(bom)
-	send("complete", buildComplete(count, out, req.signReq))
+	select {
+	case err := <-done:
+		if err != nil && ctx.Err() == nil {
+			send("error", errMsg(err))
+			flush()
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+	case <-ctx.Done():
+		<-done
+		return
+	}
+
+	send("progress", progress(80, "Reading SBOM output…"))
+	flush()
+
+	bomJSON, err := os.ReadFile(outFile) // #nosec G304 — path inside os.MkdirTemp dir
+	if err != nil {
+		send("error", errMsg(fmt.Errorf("pkgscan produced no output file: %w", err)))
+		flush()
+		return
+	}
+
+	// Count top-level components (works for both cyclonedx-json and syft-json).
+	var parsed struct {
+		Components *[]json.RawMessage `json:"components"`     // CycloneDX
+		Artifacts  *[]json.RawMessage `json:"artifacts"`      // Syft native
+		Packages   *[]json.RawMessage `json:"packages"`       // SPDX
+	}
+	count := 0
+	if json.Unmarshal(bomJSON, &parsed) == nil {
+		switch {
+		case parsed.Components != nil:
+			count = len(*parsed.Components)
+		case parsed.Artifacts != nil:
+			count = len(*parsed.Artifacts)
+		case parsed.Packages != nil:
+			count = len(*parsed.Packages)
+		}
+	}
+
+	send("complete", buildComplete(count, bomJSON, req.signReq))
 	flush()
 }
 
