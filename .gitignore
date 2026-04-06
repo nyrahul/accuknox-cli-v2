@@ -1,5 +1,8 @@
 # Binaries for programs and plugins
 pkg/tools/bins/imgscan
+*.key
+*.pub
+.DS_Store
 download-tools*
 *.exe
 *.exe~
