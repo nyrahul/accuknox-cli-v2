@@ -6,10 +6,14 @@ package ui
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
+	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +24,7 @@ import (
 	"github.com/accuknox/accuknox-cli-v2/pkg/aibom"
 	"github.com/accuknox/accuknox-cli-v2/pkg/cbom"
 	"github.com/accuknox/accuknox-cli-v2/pkg/sign"
+	"gopkg.in/yaml.v3"
 )
 
 // Server is the knoxctl embedded web UI HTTP server.
@@ -27,6 +32,63 @@ type Server struct {
 	addr    string
 	version string
 	mux     *http.ServeMux
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Persistent configuration
+// ──────────────────────────────────────────────────────────────────────────────
+
+// AppConfig is the persistent application configuration stored in
+// ~/.knoxctl-cfg.yaml (Linux/macOS) or knoxctl-cfg.yaml (Windows).
+type AppConfig struct {
+	BOM       BOMSettings    `yaml:"bom"       json:"bom"`
+	Dashboard DashboardStats `yaml:"dashboard" json:"dashboard"`
+}
+
+// BOMSettings holds the AccuKnox control-plane connection parameters used to
+// publish Bill of Materials artefacts.
+type BOMSettings struct {
+	ControlPlane string `yaml:"control_plane" json:"control_plane"`
+	Project      string `yaml:"project"       json:"project"`
+	Label        string `yaml:"label"         json:"label"`
+	Token        string `yaml:"token"         json:"token"`
+}
+
+// DashboardStats holds the persistent operation counters shown on the dashboard.
+type DashboardStats struct {
+	SBOM  int `yaml:"sbom"  json:"sbom"`
+	CBOM  int `yaml:"cbom"  json:"cbom"`
+	AIBOM int `yaml:"aibom" json:"aibom"`
+	Scan  int `yaml:"scan"  json:"scan"`
+}
+
+// configFilePath returns the path to the knoxctl config file.
+func configFilePath() string {
+	if runtime.GOOS == "windows" {
+		return "knoxctl-cfg.yaml"
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".knoxctl-cfg.yaml")
+}
+
+// loadAppConfig reads and parses the config file; returns zero value on any error.
+func loadAppConfig() AppConfig {
+	var cfg AppConfig
+	data, err := os.ReadFile(configFilePath()) // #nosec G304
+	if err != nil {
+		return cfg
+	}
+	_ = yaml.Unmarshal(data, &cfg)
+	return cfg
+}
+
+// saveAppConfig writes cfg to the config file with mode 0600.
+func saveAppConfig(cfg AppConfig) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configFilePath(), data, 0600) // #nosec G306
 }
 
 // NewServer creates a new Server listening on addr (e.g. "0.0.0.0:10100").
@@ -76,8 +138,12 @@ func (s *Server) registerRoutes() {
 	// API — version
 	s.mux.HandleFunc("/api/version", cors(s.handleVersion))
 
+	// API — config (GET=load, POST=save)
+	s.mux.HandleFunc("/api/config", cors(s.handleConfig))
+
 	// API — SBOM
 	s.mux.HandleFunc("/api/sbom/generate", cors(s.handleSBOM))
+	s.mux.HandleFunc("/api/sbom/publish", cors(s.handlePublishSBOM))
 
 	// API — CBOM
 	s.mux.HandleFunc("/api/cbom/source", cors(s.handleCBOMSource))
@@ -97,7 +163,124 @@ func (s *Server) registerRoutes() {
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{
 		"version": s.version,
+		"sha256":  binarySHA256(),
 		"time":    time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// binarySHA256 computes the SHA-256 digest of the running knoxctl binary.
+// Returns an empty string on any error (e.g. the binary was deleted after launch).
+func binarySHA256() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	f, err := os.Open(exe) // #nosec G304
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// handleConfig serves GET (load) and POST (save) for the persistent app config.
+func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, loadAppConfig())
+	case http.MethodPost:
+		var cfg AppConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			writeErr(w, "invalid request: "+err.Error())
+			return
+		}
+		if err := saveAppConfig(cfg); err != nil {
+			writeErr(w, "failed to save config: "+err.Error())
+			return
+		}
+		writeJSON(w, map[string]string{"status": "saved"})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handlePublishSBOM uploads a BOM JSON to the AccuKnox control plane using the
+// parameters stored in the config file.
+func (s *Server) handlePublishSBOM(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		BOM string `json:"bom"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, "invalid request: "+err.Error())
+		return
+	}
+	if req.BOM == "" {
+		writeErr(w, "bom payload is empty")
+		return
+	}
+
+	cfg := loadAppConfig()
+	bs := cfg.BOM
+	if bs.ControlPlane == "" || bs.Project == "" || bs.Label == "" || bs.Token == "" {
+		writeErr(w, "BOM settings are incomplete — configure them in Settings")
+		return
+	}
+
+	// Build multipart body: field name "file", filename "sbom.json".
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, err := mw.CreateFormFile("file", "sbom.json")
+	if err != nil {
+		writeErr(w, "failed to create multipart field: "+err.Error())
+		return
+	}
+	if _, err := fw.Write([]byte(req.BOM)); err != nil {
+		writeErr(w, "failed to write BOM data: "+err.Error())
+		return
+	}
+	mw.Close()
+
+	// Assemble the upload URL.
+	apiURL := strings.TrimRight(bs.ControlPlane, "/") +
+		"/api/v1/sbom/bomfiles/upload" +
+		"?project_id=" + url.QueryEscape(bs.Project) +
+		"&label_id=" + url.QueryEscape(bs.Label) +
+		"&save_to_s3=true"
+
+	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &buf) // #nosec G107
+	if err != nil {
+		writeErr(w, "failed to build request: "+err.Error())
+		return
+	}
+	httpReq.Header.Set("Content-Type", mw.FormDataContentType())
+	httpReq.Header.Set("Authorization", "Bearer "+bs.Token)
+	httpReq.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 2 * time.Minute}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		writeErr(w, "publish request failed: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 400 {
+		writeErr(w, fmt.Sprintf("control plane returned HTTP %d: %s", resp.StatusCode, string(body)))
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"status": "published",
+		"code":   resp.StatusCode,
+		"body":   string(body),
 	})
 }
 
@@ -156,6 +339,18 @@ func (s *Server) handleSBOM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	args := []string{"pkgscan", "scan", source, "-o", req.Format + "=" + outFile}
+
+	// Use basename as the SBOM source name when the input looks like a filesystem path,
+	// so the output doesn't embed full local directory paths.
+	scheme := req.Scheme
+	if scheme == "" {
+		scheme = "dir" // default when no scheme is set
+	}
+	if scheme == "dir" || scheme == "file" || scheme == "oci-dir" || scheme == "oci-archive" {
+		if name := filepath.Base(req.Source); name != "" && name != "." {
+			args = append(args, "--source-name", name)
+		}
+	}
 	for _, pat := range strings.Split(req.Exclude, ",") {
 		if pat = strings.TrimSpace(pat); pat != "" {
 			args = append(args, "--exclude", pat)

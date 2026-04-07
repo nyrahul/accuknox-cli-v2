@@ -277,6 +277,10 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="5" y2="17"/><line x1="12" y1="7" x2="19" y2="17"/><line x1="5" y1="17" x2="19" y2="17"/></svg>
     AI / ML BOM
   </div>
+  <div class="sb-item" data-section="bom-settings" onclick="nav(this)">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    BOM Settings
+  </div>
 
   <div class="sb-section">Infrastructure</div>
   <div class="sb-item" data-section="vm" onclick="nav(this)">
@@ -366,6 +370,7 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <tr><td style="padding:5px 0;color:var(--text-muted);width:120px">Version</td><td id="about-version" style="font-weight:600">—</td></tr>
           <tr><td style="padding:5px 0;color:var(--text-muted)">Publisher</td><td style="font-weight:600">AccuKnox</td></tr>
           <tr><td style="padding:5px 0;color:var(--text-muted)">Interface</td><td style="font-weight:600">Web UI 1.0</td></tr>
+          <tr><td style="padding:5px 0;color:var(--text-muted);vertical-align:top">SHA-256</td><td id="about-sha256" style="font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:11px;word-break:break-all;color:var(--text-muted)">—</td></tr>
           <tr><td style="padding:5px 0;color:var(--text-muted)">API</td><td><span class="badge badge-ok" id="apiStatus">●  Connected</span></td></tr>
         </table>
       </div>
@@ -479,6 +484,30 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         </div>
       </div>
       <pre class="output-box" id="sbom-out"></pre>
+    </div>
+    <div id="sbom-publish-wrap" style="display:none;margin-top:16px">
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" fill="none" stroke="var(--brand)" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Publish to AccuKnox
+        </div>
+        <div class="card-sub">Upload this SBOM to your AccuKnox control plane</div>
+        <div class="cmd-preview" style="margin-bottom:12px">
+          <div class="cmd-preview-header">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            API Preview
+            <span style="margin-left:auto"><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreviewEl('publish-preview')">Copy</button></span>
+          </div>
+          <textarea class="cmd-preview-body" id="publish-preview" readonly style="color:#94a3b8"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="sbom-publish-btn" onclick="publishSBOM()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Publish SBOM
+          </button>
+        </div>
+        <div id="sbom-publish-status" style="margin-top:10px;font-size:13px"></div>
+      </div>
     </div>
   </section>
 
@@ -760,6 +789,48 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     </div>
   </section>
 
+  <!-- ── BOM Settings ──────────────────────────────────────────────────── -->
+  <section id="sec-bom-settings" class="section">
+    <div class="page-title">BOM Settings</div>
+    <div class="page-sub">Configure AccuKnox control plane connection for publishing Bill of Materials artefacts.</div>
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" fill="none" stroke="var(--brand)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        AccuKnox Control Plane
+      </div>
+      <div class="card-sub">These credentials are stored locally in <code id="cfg-path-label">~/.knoxctl-cfg.yaml</code></div>
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1">
+          <label>Control Plane URL</label>
+          <input type="url" id="cfg-cp" placeholder="https://your-tenant.accuknox.com"/>
+          <small>Base URL of your AccuKnox control plane (no trailing slash)</small>
+        </div>
+        <div class="field">
+          <label>Project</label>
+          <input type="text" id="cfg-project" placeholder="my-project"/>
+          <small>Project name — used as <code>project_id</code> in the upload API</small>
+        </div>
+        <div class="field">
+          <label>Label</label>
+          <input type="text" id="cfg-label" placeholder="production"/>
+          <small>Label string — used as <code>label_id</code> in the upload API</small>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>API Token</label>
+          <input type="password" id="cfg-token" placeholder="Paste your bearer token here"/>
+          <small>Sent as <code>Authorization: Bearer &lt;token&gt;</code></small>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveSettings()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Settings
+        </button>
+      </div>
+      <div id="settings-status" style="margin-top:10px;font-size:13px"></div>
+    </div>
+  </section>
+
   <!-- ── VM Onboarding ───────────────────────────────────────────────────── -->
   <section id="sec-vm" class="section">
     <div class="page-title">VM Onboarding</div>
@@ -1005,7 +1076,7 @@ function nav(el, sectionId) {
   if (item) item.classList.add('active');
   const sec = document.getElementById(`sec-${id}`);
   if (sec) sec.classList.add('active');
-  const titles = {dashboard:'Dashboard',sbom:'Software BOM',cbom:'Cryptography BOM',aibom:'AI / ML BOM',vm:'VM Onboarding',probe:'Security Probe',imgscan:'Container Security'};
+  const titles = {dashboard:'Dashboard',sbom:'Software BOM',cbom:'Cryptography BOM',aibom:'AI / ML BOM','bom-settings':'BOM Settings',vm:'VM Onboarding',probe:'Security Probe',imgscan:'Container Security'};
   document.getElementById('pageTitle').textContent = titles[id] || id;
 }
 
@@ -1043,6 +1114,8 @@ async function checkConnection() {
     document.getElementById('versionBadge').textContent = `knoxctl ${ver}`;
     const av = document.getElementById('about-version');
     if (av) av.textContent = ver;
+    const ah = document.getElementById('about-sha256');
+    if (ah) ah.textContent = d.sha256 || '—';
     document.getElementById('sbFooter').textContent = `knoxctl ${ver} · AccuKnox`;
     const as = document.getElementById('apiStatus');
     if (as) { as.textContent = '● Connected'; as.className = 'badge badge-info'; }
@@ -1306,6 +1379,8 @@ function runSBOM() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('sbom', data);
     if (data.signError) showOutput('sbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    showPublishPanel(data.result || '');
+    saveCounters();
     opEnd('sbom-btn', 'sbom-stop');
   },
   err => { showOutput('sbom', '⚠ Error: ' + err); opEnd('sbom-btn', 'sbom-stop'); });
@@ -1336,6 +1411,7 @@ function runCBOMSource() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('cbom', data);
     if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    saveCounters();
     opEnd('cs-btn', 'cs-stop');
   },
   err => { showOutput('cbom', '⚠ Error: ' + err); opEnd('cs-btn', 'cs-stop'); });
@@ -1365,6 +1441,7 @@ function runCBOMImage() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('cbom', data);
     if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    saveCounters();
     opEnd('ci-btn', 'ci-stop');
   },
   err => { showOutput('cbom', '⚠ Error: ' + err); opEnd('ci-btn', 'ci-stop'); });
@@ -1395,6 +1472,7 @@ function runAIBOM() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' model(s)';
     showSignResult('aibom', data);
     if (data.signError) showOutput('aibom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    saveCounters();
     opEnd('ai-btn', 'ai-stop');
   },
   err => { showOutput('aibom', '⚠ Error: ' + err); opEnd('ai-btn', 'ai-stop'); });
@@ -1471,6 +1549,7 @@ function runScan() {
       counters.scan++;
       document.getElementById('dash-scan').textContent = counters.scan;
       appendLog('scan-out', '✓ ' + (data.message || 'Scan complete'));
+      saveCounters();
       opEnd('scan-btn', 'scan-stop');
     },
     err => { appendLog('scan-out', '⚠ ' + err, true); opEnd('scan-btn', 'scan-stop'); }
@@ -1740,6 +1819,116 @@ function watchPreview(containerId, buildFn, previewId) {
   refresh(); // initial render
 }
 
+/* ── BOM Settings & Publish ────────────────────────────────────────────────── */
+let _bomSettings = { control_plane:'', project:'', label:'', token:'' };
+
+function loadConfig() {
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    const b = cfg.bom || {};
+    _bomSettings = { control_plane: b.control_plane||'', project: b.project||'', label: b.label||'', token: b.token||'' };
+    // Populate settings form
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    set('cfg-cp',      _bomSettings.control_plane);
+    set('cfg-project', _bomSettings.project);
+    set('cfg-label',   _bomSettings.label);
+    set('cfg-token',   _bomSettings.token);
+    // Restore dashboard counters
+    const d = cfg.dashboard || {};
+    counters.sbom  = d.sbom  || 0;
+    counters.cbom  = d.cbom  || 0;
+    counters.aibom = d.aibom || 0;
+    counters.scan  = d.scan  || 0;
+    document.getElementById('dash-sbom').textContent  = counters.sbom;
+    document.getElementById('dash-cbom').textContent  = counters.cbom;
+    document.getElementById('dash-aibom').textContent = counters.aibom;
+    document.getElementById('dash-scan').textContent  = counters.scan;
+  }).catch(() => {});
+}
+
+function saveSettings() {
+  _bomSettings = {
+    control_plane: v('cfg-cp'),
+    project:       v('cfg-project'),
+    label:         v('cfg-label'),
+    token:         v('cfg-token'),
+  };
+  const cfg = { bom: _bomSettings, dashboard: counters };
+  const btn = document.querySelector('#sec-bom-settings .btn-primary');
+  const st  = document.getElementById('settings-status');
+  if (btn) btn.disabled = true;
+  fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg) })
+    .then(r => r.json())
+    .then(res => {
+      if (st) { st.textContent = res.error ? '⚠ ' + res.error : '✓ Settings saved to ' + (navigator.userAgent.includes('Win') ? 'knoxctl-cfg.yaml' : '~/.knoxctl-cfg.yaml'); st.style.color = res.error ? 'var(--error)' : 'var(--success)'; }
+    })
+    .catch(e => { if (st) { st.textContent = '⚠ ' + e; st.style.color = 'var(--error)'; } })
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+
+function saveCounters() {
+  const cfg = { bom: _bomSettings, dashboard: counters };
+  fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg) }).catch(() => {});
+}
+
+function hasBOMSettings() {
+  return _bomSettings.control_plane && _bomSettings.project && _bomSettings.label && _bomSettings.token;
+}
+
+function updatePublishPreview(bomJson) {
+  const el = document.getElementById('publish-preview');
+  if (!el) return;
+  const cp = _bomSettings.control_plane.replace(/\/$/, '');
+  const masked = _bomSettings.token ? _bomSettings.token.slice(0,4) + '••••' + _bomSettings.token.slice(-4) : '<token>';
+  el.value = [
+    'POST ' + cp + '/api/v1/sbom/bomfiles/upload',
+    '  ?project_id=' + (_bomSettings.project || '<project>'),
+    '  &label_id='   + (_bomSettings.label   || '<label>'),
+    '  &save_to_s3=true',
+    '',
+    'Authorization: Bearer ' + masked,
+    'Content-Type: multipart/form-data',
+    'file: sbom.json (' + (bomJson ? Math.round(bomJson.length/1024) + ' KB' : '—') + ')',
+  ].join('\n');
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
+}
+
+function showPublishPanel(bomJson) {
+  const wrap = document.getElementById('sbom-publish-wrap');
+  if (!wrap) return;
+  if (!hasBOMSettings()) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  updatePublishPreview(bomJson);
+  const st = document.getElementById('sbom-publish-status');
+  if (st) st.textContent = '';
+}
+
+function copyPreviewEl(id) {
+  const el = document.getElementById(id);
+  if (el) navigator.clipboard.writeText(el.value).catch(() => {});
+}
+
+function publishSBOM() {
+  const bom = document.getElementById('sbom-out')?.textContent || '';
+  if (!bom || bom.startsWith('⚠')) { alert('No SBOM output to publish.'); return; }
+  if (!hasBOMSettings()) { alert('Please configure BOM Settings first.'); return; }
+  const btn = document.getElementById('sbom-publish-btn');
+  const st  = document.getElementById('sbom-publish-status');
+  if (btn) btn.disabled = true;
+  if (st)  { st.textContent = 'Publishing…'; st.style.color = 'var(--text-muted)'; }
+  fetch('/api/sbom/publish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ bom }) })
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) {
+        if (st) { st.innerHTML = '⚠ ' + res.error; st.style.color = 'var(--error)'; }
+      } else {
+        if (st) { st.innerHTML = '✓ Published successfully (HTTP ' + res.code + ')'; st.style.color = 'var(--success)'; }
+      }
+    })
+    .catch(e => { if (st) { st.textContent = '⚠ ' + e; st.style.color = 'var(--error)'; } })
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
 function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 
@@ -1762,11 +1951,16 @@ function v(id) { const el = document.getElementById(id); return el ? el.value.tr
   watchPreview('sec-vm',      buildCmdVMWN,    'vm-wn');
   watchPreview('sec-probe',   buildCmdProbe,   'probe');
   watchPreview('sec-imgscan', buildCmdScan,    'scan');
-  // Set dashboard counters
+  // Initialise dashboard counters then load persistent config (may override them).
   document.getElementById('dash-sbom').textContent = '0';
   document.getElementById('dash-cbom').textContent = '0';
   document.getElementById('dash-aibom').textContent = '0';
   document.getElementById('dash-scan').textContent = '0';
+  // Set config file path label based on platform hint.
+  const cfgLbl = document.getElementById('cfg-path-label');
+  if (cfgLbl && navigator.userAgent.includes('Win')) cfgLbl.textContent = 'knoxctl-cfg.yaml';
+  // Load persistent config (settings + counters).
+  loadConfig();
 })();
 </script>
 </body>
