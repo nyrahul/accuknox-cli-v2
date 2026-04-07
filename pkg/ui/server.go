@@ -143,7 +143,19 @@ func (s *Server) registerRoutes() {
 
 	// API — SBOM
 	s.mux.HandleFunc("/api/sbom/generate", cors(s.handleSBOM))
-	s.mux.HandleFunc("/api/sbom/publish", cors(s.handlePublishSBOM))
+	s.mux.HandleFunc("/api/sbom/publish", cors(func(w http.ResponseWriter, r *http.Request) {
+		s.handlePublishBOM(w, r, "sbom")
+	}))
+
+	// API — CBOM publish
+	s.mux.HandleFunc("/api/cbom/publish", cors(func(w http.ResponseWriter, r *http.Request) {
+		s.handlePublishBOM(w, r, "cbom")
+	}))
+
+	// API — AIBOM publish
+	s.mux.HandleFunc("/api/aibom/publish", cors(func(w http.ResponseWriter, r *http.Request) {
+		s.handlePublishBOM(w, r, "aibom")
+	}))
 
 	// API — CBOM
 	s.mux.HandleFunc("/api/cbom/source", cors(s.handleCBOMSource))
@@ -208,9 +220,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handlePublishSBOM uploads a BOM JSON to the AccuKnox control plane using the
-// parameters stored in the config file.
-func (s *Server) handlePublishSBOM(w http.ResponseWriter, r *http.Request) {
+// handlePublishBOM uploads a BOM JSON to the AccuKnox control plane.
+// bomType is one of "sbom", "cbom", or "aibom" and determines the API path.
+func (s *Server) handlePublishBOM(w http.ResponseWriter, r *http.Request, bomType string) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -234,10 +246,10 @@ func (s *Server) handlePublishSBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build multipart body: field name "file", filename "sbom.json".
+	// Build multipart body: field name "file", filename "<type>.json".
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	fw, err := mw.CreateFormFile("file", "sbom.json")
+	fw, err := mw.CreateFormFile("file", bomType+".json")
 	if err != nil {
 		writeErr(w, "failed to create multipart field: "+err.Error())
 		return
@@ -248,7 +260,7 @@ func (s *Server) handlePublishSBOM(w http.ResponseWriter, r *http.Request) {
 	}
 	mw.Close()
 
-	// Assemble the upload URL.
+	// All BOM types use the same upload endpoint.
 	apiURL := strings.TrimRight(bs.ControlPlane, "/") +
 		"/api/v1/sbom/bomfiles/upload" +
 		"?project_id=" + url.QueryEscape(bs.Project) +
@@ -472,6 +484,13 @@ func (s *Server) handleCBOMSource(w http.ResponseWriter, r *http.Request) {
 	if req.Path == "" {
 		req.Path = "."
 	}
+	// Default the component name to the basename of the path so full local
+	// directory paths don't leak into the BOM metadata.
+	if req.Name == "" {
+		if base := filepath.Base(req.Path); base != "" && base != "." {
+			req.Name = base
+		}
+	}
 
 	send, flush, ok := sseInit(w)
 	if !ok {
@@ -610,6 +629,11 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 	if req.ModelID == "" {
 		writeErr(w, "modelId is required")
 		return
+	}
+	// Default the component name to the full model ID (org/model) so that
+	// provenance is clear in the BOM metadata.
+	if req.Name == "" {
+		req.Name = req.ModelID
 	}
 
 	send, flush, ok := sseInit(w)

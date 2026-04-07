@@ -496,12 +496,12 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
           <div class="cmd-preview-header">
             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
             API Preview
-            <span style="margin-left:auto"><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreviewEl('publish-preview')">Copy</button></span>
+            <span style="margin-left:auto"><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreviewEl('sbom-publish-preview')">Copy</button></span>
           </div>
-          <textarea class="cmd-preview-body" id="publish-preview" readonly style="color:#94a3b8"></textarea>
+          <textarea class="cmd-preview-body" id="sbom-publish-preview" readonly style="color:#94a3b8"></textarea>
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="sbom-publish-btn" onclick="publishSBOM()">
+          <button class="btn btn-primary" id="sbom-publish-btn" onclick="publishBOM('sbom')">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Publish SBOM
           </button>
@@ -689,6 +689,30 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       </div>
       <pre class="output-box" id="cbom-out"></pre>
     </div>
+    <div id="cbom-publish-wrap" style="display:none;margin-top:16px">
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" fill="none" stroke="var(--brand)" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Publish to AccuKnox
+        </div>
+        <div class="card-sub">Upload this CBOM to your AccuKnox control plane</div>
+        <div class="cmd-preview" style="margin-bottom:12px">
+          <div class="cmd-preview-header">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            API Preview
+            <span style="margin-left:auto"><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreviewEl('cbom-publish-preview')">Copy</button></span>
+          </div>
+          <textarea class="cmd-preview-body" id="cbom-publish-preview" readonly style="color:#94a3b8"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="cbom-publish-btn" onclick="publishBOM('cbom')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Publish CBOM
+          </button>
+        </div>
+        <div id="cbom-publish-status" style="margin-top:10px;font-size:13px"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ── AI/ML BOM ───────────────────────────────────────────────────────── -->
@@ -786,6 +810,30 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         </div>
       </div>
       <pre class="output-box" id="aibom-out"></pre>
+    </div>
+    <div id="aibom-publish-wrap" style="display:none;margin-top:16px">
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" fill="none" stroke="var(--brand)" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Publish to AccuKnox
+        </div>
+        <div class="card-sub">Upload this AIBOM to your AccuKnox control plane</div>
+        <div class="cmd-preview" style="margin-bottom:12px">
+          <div class="cmd-preview-header">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            API Preview
+            <span style="margin-left:auto"><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="copyPreviewEl('aibom-publish-preview')">Copy</button></span>
+          </div>
+          <textarea class="cmd-preview-body" id="aibom-publish-preview" readonly style="color:#94a3b8"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="aibom-publish-btn" onclick="publishBOM('aibom')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Publish AIBOM
+          </button>
+        </div>
+        <div id="aibom-publish-status" style="margin-top:10px;font-size:13px"></div>
+      </div>
     </div>
   </section>
 
@@ -1379,7 +1427,7 @@ function runSBOM() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('sbom', data);
     if (data.signError) showOutput('sbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
-    showPublishPanel(data.result || '');
+    showPublishPanel('sbom', data.result || '');
     saveCounters();
     opEnd('sbom-btn', 'sbom-stop');
   },
@@ -1411,6 +1459,7 @@ function runCBOMSource() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('cbom', data);
     if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    showPublishPanel('cbom', data.result || '');
     saveCounters();
     opEnd('cs-btn', 'cs-stop');
   },
@@ -1441,6 +1490,7 @@ function runCBOMImage() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' components';
     showSignResult('cbom', data);
     if (data.signError) showOutput('cbom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    showPublishPanel('cbom', data.result || '');
     saveCounters();
     opEnd('ci-btn', 'ci-stop');
   },
@@ -1472,6 +1522,7 @@ function runAIBOM() {
     if (cnt && data.count !== undefined) cnt.textContent = data.count + ' model(s)';
     showSignResult('aibom', data);
     if (data.signError) showOutput('aibom', (data.result||'') + '\n\n⚠ Signing failed: ' + data.signError);
+    showPublishPanel('aibom', data.result || '');
     saveCounters();
     opEnd('ai-btn', 'ai-stop');
   },
@@ -1874,8 +1925,8 @@ function hasBOMSettings() {
   return _bomSettings.control_plane && _bomSettings.project && _bomSettings.label && _bomSettings.token;
 }
 
-function updatePublishPreview(bomJson) {
-  const el = document.getElementById('publish-preview');
+function updatePublishPreview(type, bomJson) {
+  const el = document.getElementById(type + '-publish-preview');
   if (!el) return;
   const cp = _bomSettings.control_plane.replace(/\/$/, '');
   const masked = _bomSettings.token ? _bomSettings.token.slice(0,4) + '••••' + _bomSettings.token.slice(-4) : '<token>';
@@ -1887,19 +1938,19 @@ function updatePublishPreview(bomJson) {
     '',
     'Authorization: Bearer ' + masked,
     'Content-Type: multipart/form-data',
-    'file: sbom.json (' + (bomJson ? Math.round(bomJson.length/1024) + ' KB' : '—') + ')',
+    'file: ' + type + '.json (' + (bomJson ? Math.round(bomJson.length/1024) + ' KB' : '—') + ')',
   ].join('\n');
   el.style.height = 'auto';
   el.style.height = (el.scrollHeight + 2) + 'px';
 }
 
-function showPublishPanel(bomJson) {
-  const wrap = document.getElementById('sbom-publish-wrap');
+function showPublishPanel(type, bomJson) {
+  const wrap = document.getElementById(type + '-publish-wrap');
   if (!wrap) return;
   if (!hasBOMSettings()) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
-  updatePublishPreview(bomJson);
-  const st = document.getElementById('sbom-publish-status');
+  updatePublishPreview(type, bomJson);
+  const st = document.getElementById(type + '-publish-status');
   if (st) st.textContent = '';
 }
 
@@ -1908,15 +1959,15 @@ function copyPreviewEl(id) {
   if (el) navigator.clipboard.writeText(el.value).catch(() => {});
 }
 
-function publishSBOM() {
-  const bom = document.getElementById('sbom-out')?.textContent || '';
-  if (!bom || bom.startsWith('⚠')) { alert('No SBOM output to publish.'); return; }
+function publishBOM(type) {
+  const bom = document.getElementById(type + '-out')?.textContent || '';
+  if (!bom || bom.startsWith('⚠')) { alert('No ' + type.toUpperCase() + ' output to publish.'); return; }
   if (!hasBOMSettings()) { alert('Please configure BOM Settings first.'); return; }
-  const btn = document.getElementById('sbom-publish-btn');
-  const st  = document.getElementById('sbom-publish-status');
+  const btn = document.getElementById(type + '-publish-btn');
+  const st  = document.getElementById(type + '-publish-status');
   if (btn) btn.disabled = true;
   if (st)  { st.textContent = 'Publishing…'; st.style.color = 'var(--text-muted)'; }
-  fetch('/api/sbom/publish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ bom }) })
+  fetch('/api/' + type + '/publish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ bom }) })
     .then(r => r.json())
     .then(res => {
       if (res.error) {
