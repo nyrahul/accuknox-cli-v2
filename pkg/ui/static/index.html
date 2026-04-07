@@ -142,13 +142,18 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
 .progress-fill.running{background-image:linear-gradient(45deg,rgba(255,255,255,.2) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.2) 75%,transparent 75%);background-size:40px 40px;animation:stripe 1s linear infinite}
 
 /* ── Output ────────────────────────────────────────────────────────────────── */
-.output-wrap{display:none;margin-top:18px}
+.output-wrap{display:none;margin-top:18px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .output-wrap.show{display:block}
-.output-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.output-header{display:flex;align-items:center;padding:9px 14px;background:var(--bg);cursor:pointer;user-select:none;transition:background .15s}
+.output-header:hover{background:var(--border)}
+.output-chevron{transition:transform .2s;flex-shrink:0;margin-right:8px;color:var(--text-muted)}
+.output-wrap.open .output-chevron{transform:rotate(90deg)}
+.output-body{display:none;border-top:1px solid var(--border)}
+.output-wrap.open .output-body{display:block}
 .output-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
-.output-actions{display:flex;gap:6px}
-.output-box{background:var(--json-bg);border:1px solid var(--json-border);border-radius:8px;padding:14px 16px;overflow:auto;max-height:480px;font-size:12px;line-height:1.65;color:var(--text);white-space:pre-wrap;word-break:break-all}
-.output-log{background:var(--json-bg);border:1px solid var(--json-border);border-radius:8px;padding:12px 14px;max-height:320px;overflow-y:auto;font-size:12px;line-height:1.6;color:var(--text-muted)}
+.output-actions{display:flex;gap:6px;margin-left:auto}
+.output-box{background:var(--json-bg);border:none;border-radius:0;padding:14px 16px;overflow:auto;max-height:480px;font-size:12px;line-height:1.65;color:var(--text);white-space:pre-wrap;word-break:break-all}
+.output-log{background:var(--json-bg);border:none;border-radius:0;padding:12px 14px;max-height:320px;overflow-y:auto;font-size:12px;line-height:1.6;color:var(--text-muted)}
 .output-log .log-line{padding:1px 0}
 .output-log .log-line.err{color:var(--error)}
 
@@ -468,22 +473,25 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       </div>
     </div>
     <div class="output-wrap" id="sbom-out-wrap">
-      <div class="output-header">
+      <div class="output-header" onclick="toggleOutput('sbom')">
+        <svg class="output-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         <div class="output-label">SBOM Output <span id="sbom-count" class="badge badge-info" style="margin-left:8px"></span></div>
-        <div class="output-actions">
+        <div class="output-actions" onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-sm" onclick="copyOutput('sbom-out')">Copy</button>
           <button class="btn btn-ghost btn-sm" onclick="downloadOutput('sbom-out','sbom.json')">Download</button>
         </div>
       </div>
-      <div class="sig-result" id="sbom-sig-wrap" style="display:none">
-        <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
-        <div class="sig-result-actions">
-          <button class="btn btn-ghost btn-sm" onclick="downloadSig('sbom')">&#8659; Signature (.sig)</button>
-          <button class="btn btn-ghost btn-sm" id="sbom-pubkey-btn" style="display:none" onclick="downloadPubKey('sbom')">&#8659; Public key (.pub)</button>
+      <div class="output-body">
+        <div class="sig-result" id="sbom-sig-wrap" style="display:none">
+          <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
+          <div class="sig-result-actions">
+            <button class="btn btn-ghost btn-sm" onclick="downloadSig('sbom')">&#8659; Signature (.sig)</button>
+            <button class="btn btn-ghost btn-sm" id="sbom-pubkey-btn" style="display:none" onclick="downloadPubKey('sbom')">&#8659; Public key (.pub)</button>
+          </div>
         </div>
+        <pre class="output-box" id="sbom-out"></pre>
       </div>
-      <pre class="output-box" id="sbom-out"></pre>
     </div>
     <div id="sbom-publish-wrap" style="display:none;margin-top:16px">
       <div class="card">
@@ -672,22 +680,25 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     </div>
 
     <div class="output-wrap" id="cbom-out-wrap">
-      <div class="output-header">
+      <div class="output-header" onclick="toggleOutput('cbom')">
+        <svg class="output-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         <div class="output-label">CBOM Output <span id="cbom-count" class="badge badge-info" style="margin-left:8px"></span></div>
-        <div class="output-actions">
+        <div class="output-actions" onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-sm" onclick="copyOutput('cbom-out')">Copy</button>
           <button class="btn btn-ghost btn-sm" onclick="downloadOutput('cbom-out','cbom.json')">Download</button>
         </div>
       </div>
-      <div class="sig-result" id="cbom-sig-wrap" style="display:none">
-        <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
-        <div class="sig-result-actions">
-          <button class="btn btn-ghost btn-sm" onclick="downloadSig('cbom')">&#8659; Signature (.sig)</button>
-          <button class="btn btn-ghost btn-sm" id="cbom-pubkey-btn" style="display:none" onclick="downloadPubKey('cbom')">&#8659; Public key (.pub)</button>
+      <div class="output-body">
+        <div class="sig-result" id="cbom-sig-wrap" style="display:none">
+          <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
+          <div class="sig-result-actions">
+            <button class="btn btn-ghost btn-sm" onclick="downloadSig('cbom')">&#8659; Signature (.sig)</button>
+            <button class="btn btn-ghost btn-sm" id="cbom-pubkey-btn" style="display:none" onclick="downloadPubKey('cbom')">&#8659; Public key (.pub)</button>
+          </div>
         </div>
+        <pre class="output-box" id="cbom-out"></pre>
       </div>
-      <pre class="output-box" id="cbom-out"></pre>
     </div>
     <div id="cbom-publish-wrap" style="display:none;margin-top:16px">
       <div class="card">
@@ -794,22 +805,25 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
     </div>
 
     <div class="output-wrap" id="aibom-out-wrap">
-      <div class="output-header">
+      <div class="output-header" onclick="toggleOutput('aibom')">
+        <svg class="output-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         <div class="output-label">AIBOM Output <span id="aibom-count" class="badge badge-info" style="margin-left:8px"></span></div>
-        <div class="output-actions">
+        <div class="output-actions" onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-sm" onclick="copyOutput('aibom-out')">Copy</button>
           <button class="btn btn-ghost btn-sm" onclick="downloadOutput('aibom-out','aibom.json')">Download</button>
         </div>
       </div>
-      <div class="sig-result" id="aibom-sig-wrap" style="display:none">
-        <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
-        <div class="sig-result-actions">
-          <button class="btn btn-ghost btn-sm" onclick="downloadSig('aibom')">&#8659; Signature (.sig)</button>
-          <button class="btn btn-ghost btn-sm" id="aibom-pubkey-btn" style="display:none" onclick="downloadPubKey('aibom')">&#8659; Public key (.pub)</button>
+      <div class="output-body">
+        <div class="sig-result" id="aibom-sig-wrap" style="display:none">
+          <svg class="sig-result-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span class="sig-result-label">Artifact signed (ECDSA P-256)</span>
+          <div class="sig-result-actions">
+            <button class="btn btn-ghost btn-sm" onclick="downloadSig('aibom')">&#8659; Signature (.sig)</button>
+            <button class="btn btn-ghost btn-sm" id="aibom-pubkey-btn" style="display:none" onclick="downloadPubKey('aibom')">&#8659; Public key (.pub)</button>
+          </div>
         </div>
+        <pre class="output-box" id="aibom-out"></pre>
       </div>
-      <pre class="output-box" id="aibom-out"></pre>
     </div>
     <div id="aibom-publish-wrap" style="display:none;margin-top:16px">
       <div class="card">
@@ -1272,14 +1286,31 @@ function errorProgress(prefix, msg) {
 }
 
 /* ── Output helpers ────────────────────────────────────────────────────────── */
+
+// Full BOM content stored off-DOM to avoid keeping large strings in textContent.
+// Keyed by prefix ('sbom', 'cbom', 'aibom'). Cleared on clearOutput.
+const _bomResults = {};
+
+// Display cap for the <pre> preview — keeps DOM memory low for large BOMs.
+const _PREVIEW_CAP = 64 * 1024; // 64 KB
+
 function showOutput(prefix, content) {
   const wrap = document.getElementById(`${prefix}-out-wrap`);
   const box = document.getElementById(`${prefix}-out`);
   if (wrap) wrap.classList.add('show');
   if (box) {
-    let display = content;
-    try { display = JSON.stringify(JSON.parse(content), null, 2); } catch(_) {}
-    box.textContent = display;
+    _bomResults[prefix] = content; // store full content off-DOM
+    if (content.length <= _PREVIEW_CAP) {
+      // Small enough — pretty-print safely
+      let display = content;
+      try { display = JSON.stringify(JSON.parse(content), null, 2); } catch(_) {}
+      box.textContent = display;
+    } else {
+      // Large file — show a capped raw preview to avoid DOM memory pressure
+      const kb = (content.length / 1024).toFixed(0);
+      box.textContent = content.slice(0, _PREVIEW_CAP) +
+        `\n\n… (${kb} KB total — showing first 64 KB. Use Download for the full file.)`;
+    }
   }
 }
 function clearOutput(prefix) {
@@ -1289,6 +1320,9 @@ function clearOutput(prefix) {
   const cnt = document.getElementById(`${prefix}-count`);
   if (wrap) wrap.classList.remove('show');
   if (box) box.textContent = '';
+  delete _bomResults[prefix];
+  const pw = document.getElementById(`${prefix}-publish-wrap`);
+  if (pw) pw.style.display = 'none';
   if (prog) { prog.classList.remove('show'); const f = document.getElementById(`${prefix}-prog-fill`); if(f){f.style.width='0';f.style.background='';} }
   if (cnt) cnt.textContent = '';
   clearExecLog(prefix);
@@ -1307,20 +1341,27 @@ function clearLog(prefix) {
   const wrap = document.getElementById(`${prefix}-out-wrap`);
   if (box) box.innerHTML = '';
   if (wrap) wrap.classList.remove('show');
+  delete _bomResults[prefix];
   hideProgress(prefix);
   clearExecLog(prefix);
 }
 function copyOutput(id) {
-  const el = document.getElementById(id);
-  if (el) navigator.clipboard.writeText(el.textContent).catch(()=>{});
+  const prefix = id.replace(/-out$/, '');
+  const content = _bomResults[prefix] ?? document.getElementById(id)?.textContent ?? '';
+  if (content) navigator.clipboard.writeText(content).catch(() => {});
 }
 function downloadOutput(id, filename) {
-  const el = document.getElementById(id);
-  if (!el || !el.textContent) return;
+  const prefix = id.replace(/-out$/, '');
+  const content = _bomResults[prefix] ?? document.getElementById(id)?.textContent ?? '';
+  if (!content) return;
+  // Use a Blob URL — avoids the 3× memory spike of encodeURIComponent on large strings.
+  const blob = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(el.textContent);
-  a.download = filename;
-  a.click();
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /* ── SSE runner ────────────────────────────────────────────────────────────── */
@@ -1625,9 +1666,9 @@ function appendExecLog(prefix, line, isErr) {
   const log   = document.getElementById(`${prefix}-exec-log`);
   const badge = document.getElementById(`${prefix}-exec-badge`);
   if (!wrap || !log) return;
-  // Show and auto-expand on first line.
+  // Show collapsed on first line (user can expand by clicking the header).
   if (!wrap.classList.contains('show')) {
-    wrap.classList.add('show', 'open');
+    wrap.classList.add('show');
     _execCounts[prefix] = 0;
   }
   const div = document.createElement('div');
@@ -1643,13 +1684,20 @@ function toggleExecLog(prefix) {
   const wrap = document.getElementById(`${prefix}-exec-wrap`);
   if (wrap) wrap.classList.toggle('open');
 }
+function toggleOutput(prefix) {
+  const wrap = document.getElementById(`${prefix}-out-wrap`);
+  if (wrap) wrap.classList.toggle('open');
+}
 
 /* ── Command Preview ───────────────────────────────────────────────────────── */
 
-// Quote a shell argument if it contains whitespace or special chars.
+// Quote a shell argument if it contains whitespace or quotes.
+// Backslashes (Windows paths) are left as-is inside the double quotes —
+// cmd.exe, PowerShell, and typical Unix shells all treat them as literal
+// characters in double-quoted strings, so escaping them produces wrong paths.
 function shellQ(s) {
   if (!s) return '';
-  return /[\s"'\\]/.test(s) ? '"' + s.replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"' : s;
+  return /[\s"']/.test(s) ? '"' + s.replace(/"/g, '\\"') + '"' : s;
 }
 
 // Build sign flag parts for a given form prefix.
@@ -1960,7 +2008,7 @@ function copyPreviewEl(id) {
 }
 
 function publishBOM(type) {
-  const bom = document.getElementById(type + '-out')?.textContent || '';
+  const bom = _bomResults[type] || '';
   if (!bom || bom.startsWith('⚠')) { alert('No ' + type.toUpperCase() + ' output to publish.'); return; }
   if (!hasBOMSettings()) { alert('Please configure BOM Settings first.'); return; }
   const btn = document.getElementById(type + '-publish-btn');
