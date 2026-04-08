@@ -140,6 +140,8 @@ func (s *Server) registerRoutes() {
 
 	// API — config (GET=load, POST=save)
 	s.mux.HandleFunc("/api/config", cors(s.handleConfig))
+	s.mux.HandleFunc("/api/config/projects", cors(s.handleFetchProjects))
+	s.mux.HandleFunc("/api/config/labels", cors(s.handleFetchLabels))
 
 	// API — SBOM
 	s.mux.HandleFunc("/api/sbom/generate", cors(s.handleSBOM))
@@ -218,6 +220,82 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// handleFetchProjects proxies a project-list request to the AccuKnox control
+// plane and returns the raw JSON response to the browser.
+func (s *Server) handleFetchProjects(w http.ResponseWriter, r *http.Request) {
+	cfg := loadAppConfig()
+	bs := cfg.BOM
+	if bs.ControlPlane == "" || bs.Token == "" {
+		writeErr(w, "control plane URL and token must be saved in BOM Settings first")
+		return
+	}
+
+	apiURL := strings.TrimRight(bs.ControlPlane, "/") +
+		"/api/v1/sbom/projects?page=1&page_size=100"
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil) // #nosec G107
+	if err != nil {
+		writeErr(w, "failed to build request: "+err.Error())
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+bs.Token)
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		writeErr(w, "failed to fetch projects: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 400 {
+		writeErr(w, fmt.Sprintf("control plane returned HTTP %d: %s", resp.StatusCode, string(body)))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(body)
+}
+
+// handleFetchLabels proxies a labels request to the AccuKnox control plane.
+func (s *Server) handleFetchLabels(w http.ResponseWriter, r *http.Request) {
+	cfg := loadAppConfig()
+	bs := cfg.BOM
+	if bs.ControlPlane == "" || bs.Token == "" {
+		writeErr(w, "control plane URL and token must be saved in BOM Settings first")
+		return
+	}
+
+	apiURL := strings.TrimRight(bs.ControlPlane, "/") + "/api/v1/labels-mini"
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil) // #nosec G107
+	if err != nil {
+		writeErr(w, "failed to build request: "+err.Error())
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+bs.Token)
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		writeErr(w, "failed to fetch labels: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 400 {
+		writeErr(w, fmt.Sprintf("control plane returned HTTP %d: %s", resp.StatusCode, string(body)))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(body)
 }
 
 // handlePublishBOM uploads a BOM JSON to the AccuKnox control plane.
@@ -613,25 +691,28 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ModelID      string `json:"modelId"`
-		Token        string `json:"token"`
+		// Common
+		Source       string `json:"source"` // "huggingface" (default) or "bedrock"
 		Name         string `json:"name"`
 		Version      string `json:"version"`
 		Manufacturer string `json:"manufacturer"`
+		// HuggingFace
+		ModelID string `json:"modelId"`
+		Token   string `json:"token"`
+		// AWS Bedrock
+		Region                string `json:"region"`
+		UseDefaultCredentials bool   `json:"useDefaultCredentials"`
+		AccessKeyID           string `json:"accessKeyId"`
+		SecretAccessKey       string `json:"secretAccessKey"`
+		SessionToken          string `json:"sessionToken"`
 		signReq
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, "invalid request: "+err.Error())
 		return
 	}
-	if req.ModelID == "" {
-		writeErr(w, "modelId is required")
-		return
-	}
-	// Default the component name to the full model ID (org/model) so that
-	// provenance is clear in the BOM metadata.
-	if req.Name == "" {
-		req.Name = req.ModelID
+	if req.Source == "" {
+		req.Source = "huggingface"
 	}
 
 	send, flush, ok := sseInit(w)
@@ -643,6 +724,65 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 	flush()
 	if ctxDone(r.Context(), send, flush) {
 		return
+	}
+
+	if req.Source == "bedrock" {
+		if req.Region == "" {
+			send("error", errMsg(fmt.Errorf("region is required for AWS Bedrock")))
+			flush()
+			return
+		}
+		send("progress", progress(30, "Fetching AWS Bedrock model catalog…"))
+		flush()
+
+		bedrockOpts := &aibom.BedrockOptions{
+			Region:                req.Region,
+			UseDefaultCredentials: req.UseDefaultCredentials || req.AccessKeyID == "",
+			AccessKeyID:           req.AccessKeyID,
+			SecretAccessKey:       req.SecretAccessKey,
+			SessionToken:          req.SessionToken,
+			ModelID:               req.ModelID,
+			Name:                  req.Name,
+			Version:               req.Version,
+			Manufacturer:          req.Manufacturer,
+			Format:                "json",
+		}
+
+		cdxBOM, err := aibom.GenerateFromBedrock(bedrockOpts)
+		if err != nil {
+			send("error", errMsg(err))
+			flush()
+			return
+		}
+		if ctxDone(r.Context(), send, flush) {
+			return
+		}
+
+		send("progress", progress(80, "Building AI/ML BOM…"))
+		flush()
+
+		out, err := json.MarshalIndent(cdxBOM, "", "  ")
+		if err != nil {
+			send("error", errMsg(err))
+			flush()
+			return
+		}
+		count := aibom.ModelCount(cdxBOM)
+		send("complete", buildComplete(count, out, req.signReq))
+		flush()
+		return
+	}
+
+	// HuggingFace (default)
+	if req.ModelID == "" {
+		send("error", errMsg(fmt.Errorf("modelId is required for HuggingFace")))
+		flush()
+		return
+	}
+	// Default the component name to the full model ID (org/model) so that
+	// provenance is clear in the BOM metadata.
+	if req.Name == "" {
+		req.Name = req.ModelID
 	}
 
 	opts := &aibom.Options{
@@ -657,7 +797,7 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 	send("progress", progress(30, "Fetching model metadata…"))
 	flush()
 
-	bom, err := aibom.Generate(opts)
+	cdxBOM, err := aibom.Generate(opts)
 	if err != nil {
 		send("error", errMsg(err))
 		flush()
@@ -670,14 +810,14 @@ func (s *Server) handleAIBOM(w http.ResponseWriter, r *http.Request) {
 	send("progress", progress(80, "Building AI/ML BOM…"))
 	flush()
 
-	out, err := json.MarshalIndent(bom, "", "  ")
+	out, err := json.MarshalIndent(cdxBOM, "", "  ")
 	if err != nil {
 		send("error", errMsg(err))
 		flush()
 		return
 	}
 
-	count := aibom.ModelCount(bom)
+	count := aibom.ModelCount(cdxBOM)
 	send("complete", buildComplete(count, out, req.signReq))
 	flush()
 }

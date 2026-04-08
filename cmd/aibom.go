@@ -11,6 +11,7 @@ import (
 )
 
 var aibomOpts aibom.Options
+var bedrockOpts aibom.BedrockOptions
 
 var aibomCmd = &cobra.Command{
 	Use:   "aibom",
@@ -44,9 +45,41 @@ Examples:
 	},
 }
 
+var aibomBedrockCmd = &cobra.Command{
+	Use:   "bedrock",
+	Short: "Generate AIBOM from AWS Bedrock foundation models",
+	Long: `Fetch model metadata from AWS Bedrock and produce a CycloneDX 1.6 AIBOM
+documenting foundation models' capabilities, modalities, and licensing.
+
+By default the standard AWS credential chain is used (environment variables,
+~/.aws/credentials, IAM instance role).  Supply --access-key-id and
+--secret-access-key to use explicit credentials instead.
+
+Examples:
+  knoxctl aibom bedrock --region us-east-1
+  knoxctl aibom bedrock --region us-east-1 --model anthropic.claude-3-sonnet-20240229-v1:0
+  knoxctl aibom bedrock --region us-east-1 --access-key-id AKIA... --secret-access-key ...`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Inherit shared metadata overrides from the persistent aibomCmd flags.
+		bedrockOpts.Name = aibomOpts.Name
+		bedrockOpts.Version = aibomOpts.Version
+		bedrockOpts.Manufacturer = aibomOpts.Manufacturer
+		bedrockOpts.OutputTo = aibomOpts.OutputTo
+		bedrockOpts.Format = aibomOpts.Format
+
+		bom, err := aibom.GenerateFromBedrock(&bedrockOpts)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Found %d AI/ML model component(s)\n", aibom.ModelCount(bom))
+		return aibom.Output(bom, &aibomOpts)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(aibomCmd)
 	aibomCmd.AddCommand(aibomGenerateCmd)
+	aibomCmd.AddCommand(aibomBedrockCmd)
 
 	// Required: HuggingFace model identifier
 	aibomGenerateCmd.Flags().StringVar(&aibomOpts.ModelID, "model", "", "HuggingFace model identifier (e.g. google-bert/bert-base-uncased)")
@@ -63,6 +96,15 @@ func init() {
 	// Output flags
 	aibomCmd.PersistentFlags().StringVar(&aibomOpts.OutputTo, "out", "", "Write AIBOM JSON to this file")
 	aibomCmd.PersistentFlags().StringVar(&aibomOpts.Format, "format", "json", `Output format: "json" or "table"`)
+
+	// Bedrock-specific flags
+	aibomBedrockCmd.Flags().StringVar(&bedrockOpts.Region, "region", "", "AWS region (e.g. us-east-1)")
+	_ = aibomBedrockCmd.MarkFlagRequired("region")
+	aibomBedrockCmd.Flags().BoolVar(&bedrockOpts.UseDefaultCredentials, "use-default-credentials", false, "Use the default AWS credential chain (env vars / ~/.aws/credentials / IAM role)")
+	aibomBedrockCmd.Flags().StringVar(&bedrockOpts.AccessKeyID, "access-key-id", "", "AWS access key ID (leave empty to use default credential chain)")
+	aibomBedrockCmd.Flags().StringVar(&bedrockOpts.SecretAccessKey, "secret-access-key", "", "AWS secret access key")
+	aibomBedrockCmd.Flags().StringVar(&bedrockOpts.SessionToken, "session-token", "", "AWS session token (optional)")
+	aibomBedrockCmd.Flags().StringVar(&bedrockOpts.ModelID, "model", "", "Inventory a single Bedrock model ID (empty = all available models)")
 
 	// Signing flags (only meaningful when --out is set)
 	aibomCmd.PersistentFlags().BoolVar(&aibomOpts.Sign.Enabled, "sign", false, "Sign the output artifact with cosign after generation")

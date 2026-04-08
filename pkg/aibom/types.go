@@ -45,6 +45,8 @@ type hfModelInfo struct {
 	Downloads    int         `json:"downloads"`
 	Likes        int         `json:"likes"`
 	SafeTensors  interface{} `json:"safetensors"`
+	CreatedAt    string      `json:"createdAt"`
+	Gated        interface{} `json:"gated"` // false, "auto", or "manual"
 }
 
 // effectiveID returns the model identifier, preferring ModelID over ID.

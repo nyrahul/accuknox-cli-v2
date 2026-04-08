@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -212,6 +213,12 @@ func buildModelComponent(info *hfModelInfo, opts *Options) cdx.Component {
 	// External references: repository, model card, downloads.
 	comp.ExternalReferences = buildExternalRefs(modelID, info)
 
+	// Static model attributes as CycloneDX properties.
+	comp.Properties = buildProperties(info)
+
+	// Software dependencies (frameworks) as nested library sub-components.
+	comp.Components = buildSoftwareDependencies(info)
+
 	// Model card with parameters, quantitative analysis, and considerations.
 	comp.ModelCard = buildModelCard(info)
 
@@ -275,36 +282,98 @@ func buildModelParameters(info *hfModelInfo) *cdx.MLModelParameters {
 	// objects {}.  Dataset information is instead carried by comp.Data (inline
 	// ComponentData entries) and the standalone data-type components.
 
+	// I/O format parameters derived from the pipeline task.
+	if task != "" {
+		ins, outs := inferModalities(task)
+		if ins != nil {
+			params.Inputs = &ins
+			empty = false
+		}
+		if outs != nil {
+			params.Outputs = &outs
+			empty = false
+		}
+	}
+
 	if empty {
 		return nil
 	}
 	return params
 }
 
-// buildQuantitativeAnalysis extracts performance metrics from model-index results.
+// buildQuantitativeAnalysis extracts performance metrics from model-index results
+// and adds architectural metrics from config.json.
 func buildQuantitativeAnalysis(info *hfModelInfo) *cdx.MLQuantitativeAnalysis {
-	if info.CardData == nil || len(info.CardData.ModelIndex) == 0 {
-		return nil
-	}
-
 	var metrics []cdx.MLPerformanceMetric
-	for _, entry := range info.CardData.ModelIndex {
-		for _, result := range entry.Results {
-			for _, m := range result.Metrics {
-				if m.Value == nil {
-					continue
+
+	// Evaluation results from the model card model-index block.
+	if info.CardData != nil {
+		for _, entry := range info.CardData.ModelIndex {
+			for _, result := range entry.Results {
+				for _, m := range result.Metrics {
+					if m.Value == nil {
+						continue
+					}
+					metric := cdx.MLPerformanceMetric{
+						Type:  m.Type,
+						Value: fmt.Sprintf("%v", m.Value),
+						Slice: result.Dataset.Name,
+					}
+					if metric.Type == "" {
+						metric.Type = m.Name
+					}
+					metrics = append(metrics, metric)
 				}
-				metric := cdx.MLPerformanceMetric{
-					Type:  m.Type,
-					Value: fmt.Sprintf("%v", m.Value),
-					Slice: result.Dataset.Name,
-				}
-				if metric.Type == "" {
-					metric.Type = m.Name
-				}
-				metrics = append(metrics, metric)
 			}
 		}
+	}
+
+	// Architectural metrics from config.json.
+	if info.Config != nil {
+		if info.Config.MaxPositionEmbeddings > 0 {
+			metrics = append(metrics, cdx.MLPerformanceMetric{
+				Type:  "maxInputTokens",
+				Value: strconv.Itoa(info.Config.MaxPositionEmbeddings),
+				Slice: "architecture",
+			})
+		}
+		if info.Config.VocabSize > 0 {
+			metrics = append(metrics, cdx.MLPerformanceMetric{
+				Type:  "vocabSize",
+				Value: strconv.Itoa(info.Config.VocabSize),
+				Slice: "architecture",
+			})
+		}
+		if info.Config.HiddenSize > 0 {
+			metrics = append(metrics, cdx.MLPerformanceMetric{
+				Type:  "hiddenSize",
+				Value: strconv.Itoa(info.Config.HiddenSize),
+				Slice: "architecture",
+			})
+		}
+		if info.Config.NumHiddenLayers > 0 {
+			metrics = append(metrics, cdx.MLPerformanceMetric{
+				Type:  "numLayers",
+				Value: strconv.Itoa(info.Config.NumHiddenLayers),
+				Slice: "architecture",
+			})
+		}
+		if info.Config.NumAttentionHeads > 0 {
+			metrics = append(metrics, cdx.MLPerformanceMetric{
+				Type:  "numAttentionHeads",
+				Value: strconv.Itoa(info.Config.NumAttentionHeads),
+				Slice: "architecture",
+			})
+		}
+	}
+
+	// Total parameter count from safetensors metadata.
+	if totalParams := parseSafeTensors(info.SafeTensors); totalParams > 0 {
+		metrics = append(metrics, cdx.MLPerformanceMetric{
+			Type:  "totalParameters",
+			Value: formatParamCount(totalParams),
+			Slice: "architecture",
+		})
 	}
 
 	if len(metrics) == 0 {
@@ -340,6 +409,27 @@ func buildConsiderations(info *hfModelInfo) *cdx.MLModelCardConsiderations {
 	limits := inferLimitations(info)
 	if len(limits) > 0 {
 		cons.TechnicalLimitations = &limits
+		empty = false
+	}
+
+	// Performance tradeoffs based on model size and quantisation.
+	tradeoffs := buildPerformanceTradeoffs(info)
+	if len(tradeoffs) > 0 {
+		cons.PerformanceTradeoffs = &tradeoffs
+		empty = false
+	}
+
+	// Ethical and security considerations.
+	ethics := buildEthicalConsiderations(info)
+	if ethics != nil {
+		cons.EthicalConsiderations = ethics
+		empty = false
+	}
+
+	// Environmental / CO2 impact.
+	envCons := buildEnvironmentalConsiderations(info)
+	if envCons != nil {
+		cons.EnvironmentalConsiderations = envCons
 		empty = false
 	}
 
@@ -450,10 +540,11 @@ func buildInlineDatasets(info *hfModelInfo) *[]cdx.ComponentData {
 	data := make([]cdx.ComponentData, 0, len(info.CardData.Datasets))
 	for _, ds := range info.CardData.Datasets {
 		data = append(data, cdx.ComponentData{
-			BOMRef:      "dataset/" + ds,
-			Type:        cdx.ComponentDataTypeDataset,
-			Name:        ds,
-			Description: "Training / evaluation dataset",
+			BOMRef:         "dataset/" + ds,
+			Type:           cdx.ComponentDataTypeDataset,
+			Name:           ds,
+			Description:    "Training / evaluation dataset",
+			Classification: "training",
 			Contents: &cdx.ComponentDataContents{
 				URL: fmt.Sprintf("https://huggingface.co/datasets/%s", ds),
 			},
@@ -649,4 +740,405 @@ func inferLimitations(info *hfModelInfo) []string {
 		limits = append(limits, "Direct inference not recommended by the model author")
 	}
 	return limits
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Rich enrichment helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+// parseSafeTensors extracts the total parameter count from the safetensors metadata.
+// HuggingFace returns this as {"total": N, ...}. Returns 0 if unavailable.
+func parseSafeTensors(raw interface{}) int64 {
+	if raw == nil {
+		return 0
+	}
+	m, ok := raw.(map[string]interface{})
+	if !ok {
+		return 0
+	}
+	if v, ok := m["total"].(float64); ok && v > 0 {
+		return int64(v)
+	}
+	return 0
+}
+
+// bytesPerParam returns the memory cost per parameter for a given dtype.
+func bytesPerParam(dtype string) float64 {
+	switch strings.ToLower(dtype) {
+	case "float16", "bfloat16", "fp16", "bf16":
+		return 2.0
+	case "float8", "fp8", "int8":
+		return 1.0
+	case "int4", "4bit", "nf4":
+		return 0.5
+	default: // float32 / unknown
+		return 4.0
+	}
+}
+
+// formatParamCount formats a parameter count as a human-readable string, e.g. "7.0B", "125M".
+func formatParamCount(n int64) string {
+	switch {
+	case n >= 1_000_000_000:
+		return fmt.Sprintf("%.1fB", float64(n)/1_000_000_000)
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
+}
+
+// isGated reports whether a model has restricted access based on the HuggingFace gated field.
+func isGated(gated interface{}) bool {
+	if gated == nil {
+		return false
+	}
+	switch v := gated.(type) {
+	case bool:
+		return v
+	case string:
+		return v != "" && v != "false"
+	}
+	return false
+}
+
+// co2Detail holds parsed CO2 emissions information from the HuggingFace model card.
+type co2Detail struct {
+	KgCO2Eq              float64
+	Source               string
+	TrainingType         string
+	GeographicalLocation string
+	HardwareUsed         string
+}
+
+// parseCO2Detail parses the co2_eq_emissions card field, which can be a bare number
+// (kg CO2 equivalent) or an object with structured fields.
+func parseCO2Detail(raw interface{}) *co2Detail {
+	if raw == nil {
+		return nil
+	}
+	d := &co2Detail{}
+	switch v := raw.(type) {
+	case float64:
+		if v <= 0 {
+			return nil
+		}
+		d.KgCO2Eq = v
+		return d
+	case map[string]interface{}:
+		if e, ok := v["emissions"].(float64); ok {
+			d.KgCO2Eq = e
+		}
+		if s, ok := v["source"].(string); ok {
+			d.Source = s
+		}
+		if t, ok := v["training_type"].(string); ok {
+			d.TrainingType = t
+		}
+		if l, ok := v["geographical_location"].(string); ok {
+			d.GeographicalLocation = l
+		}
+		if h, ok := v["hardware_used"].(string); ok {
+			d.HardwareUsed = h
+		}
+		if d.KgCO2Eq <= 0 {
+			return nil
+		}
+		return d
+	}
+	return nil
+}
+
+// containsAny reports whether s contains any of the given substrings.
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// inferModalities maps a HuggingFace pipeline_tag to CycloneDX I/O format parameters.
+func inferModalities(task string) (inputs, outputs []cdx.MLInputOutputParameters) {
+	task = strings.ToLower(task)
+	switch {
+	case containsAny(task, "text-generation", "text2text-generation", "translation",
+		"summarization", "fill-mask", "text-classification", "token-classification",
+		"question-answering", "sentence-similarity", "zero-shot-classification",
+		"table-question-answering", "conversational"):
+		return []cdx.MLInputOutputParameters{{Format: "text"}},
+			[]cdx.MLInputOutputParameters{{Format: "text"}}
+	case containsAny(task, "image-classification", "object-detection", "image-segmentation",
+		"zero-shot-image-classification", "depth-estimation"):
+		return []cdx.MLInputOutputParameters{{Format: "image"}},
+			[]cdx.MLInputOutputParameters{{Format: "text"}}
+	case containsAny(task, "text-to-image", "image-generation", "unconditional-image-generation"):
+		return []cdx.MLInputOutputParameters{{Format: "text"}},
+			[]cdx.MLInputOutputParameters{{Format: "image"}}
+	case containsAny(task, "image-to-text", "visual-question-answering", "document-question-answering"):
+		return []cdx.MLInputOutputParameters{{Format: "image"}, {Format: "text"}},
+			[]cdx.MLInputOutputParameters{{Format: "text"}}
+	case containsAny(task, "automatic-speech-recognition", "audio-classification"):
+		return []cdx.MLInputOutputParameters{{Format: "audio"}},
+			[]cdx.MLInputOutputParameters{{Format: "text"}}
+	case containsAny(task, "text-to-speech", "text-to-audio"):
+		return []cdx.MLInputOutputParameters{{Format: "text"}},
+			[]cdx.MLInputOutputParameters{{Format: "audio"}}
+	case containsAny(task, "audio-to-audio"):
+		return []cdx.MLInputOutputParameters{{Format: "audio"}},
+			[]cdx.MLInputOutputParameters{{Format: "audio"}}
+	case containsAny(task, "feature-extraction", "embedding"):
+		return []cdx.MLInputOutputParameters{{Format: "text"}},
+			[]cdx.MLInputOutputParameters{{Format: "vector"}}
+	case containsAny(task, "image-to-image"):
+		return []cdx.MLInputOutputParameters{{Format: "image"}},
+			[]cdx.MLInputOutputParameters{{Format: "image"}}
+	case containsAny(task, "reinforcement-learning", "robotics"):
+		return []cdx.MLInputOutputParameters{{Format: "state"}},
+			[]cdx.MLInputOutputParameters{{Format: "action"}}
+	}
+	return nil, nil
+}
+
+// buildProperties builds a CycloneDX property list from model metadata.
+func buildProperties(info *hfModelInfo) *[]cdx.Property {
+	var props []cdx.Property
+	add := func(name, value string) {
+		if value != "" {
+			props = append(props, cdx.Property{Name: name, Value: value})
+		}
+	}
+
+	// Release / modification date
+	if info.LastModified != "" {
+		add("releaseDate", info.LastModified)
+	}
+	if info.CreatedAt != "" {
+		add("createdAt", info.CreatedAt)
+	}
+
+	// Framework / library (primary dependency)
+	if info.CardData != nil && info.CardData.LibraryName != "" {
+		add("framework", info.CardData.LibraryName)
+	}
+
+	// Architecture from config.json
+	if info.Config != nil {
+		if info.Config.MaxPositionEmbeddings > 0 {
+			add("maxInputTokens", strconv.Itoa(info.Config.MaxPositionEmbeddings))
+		}
+		if info.Config.VocabSize > 0 {
+			add("vocabSize", strconv.Itoa(info.Config.VocabSize))
+		}
+		if info.Config.HiddenSize > 0 {
+			add("hiddenSize", strconv.Itoa(info.Config.HiddenSize))
+		}
+		if info.Config.NumHiddenLayers > 0 {
+			add("numLayers", strconv.Itoa(info.Config.NumHiddenLayers))
+		}
+		if info.Config.NumAttentionHeads > 0 {
+			add("numAttentionHeads", strconv.Itoa(info.Config.NumAttentionHeads))
+		}
+		if info.Config.TorchDtype != "" {
+			add("precision", info.Config.TorchDtype)
+		}
+	}
+
+	// Total parameter count and estimated VRAM from safetensors
+	totalParams := parseSafeTensors(info.SafeTensors)
+	if totalParams > 0 {
+		add("totalParameters", formatParamCount(totalParams))
+		dtype := ""
+		if info.Config != nil {
+			dtype = info.Config.TorchDtype
+		}
+		bpp := bytesPerParam(dtype)
+		// Add ~20% overhead for KV cache and activations.
+		vramGB := float64(totalParams) * bpp / (1024 * 1024 * 1024) * 1.2
+		add("minVRAMGB", fmt.Sprintf("%.1f", vramGB))
+	}
+
+	// Hardware info from CO2 emissions metadata
+	if info.CardData != nil {
+		if d := parseCO2Detail(info.CardData.CO2EqEmissions); d != nil {
+			add("trainingHardware", d.HardwareUsed)
+			add("trainingLocation", d.GeographicalLocation)
+		}
+	}
+
+	// Access control
+	if isGated(info.Gated) {
+		add("accessControl", "gated")
+	}
+
+	// Community metrics
+	if info.Downloads > 0 {
+		add("downloadCount", strconv.Itoa(info.Downloads))
+	}
+	if info.Likes > 0 {
+		add("likeCount", strconv.Itoa(info.Likes))
+	}
+
+	if len(props) == 0 {
+		return nil
+	}
+	return &props
+}
+
+// buildSoftwareDependencies returns nested library components for frameworks inferred
+// from the model card and tags.
+func buildSoftwareDependencies(info *hfModelInfo) *[]cdx.Component {
+	seen := map[string]bool{}
+	var deps []cdx.Component
+
+	addDep := func(name string) {
+		if name != "" && !seen[name] {
+			seen[name] = true
+			deps = append(deps, cdx.Component{
+				BOMRef: "dep/library/" + name,
+				Type:   cdx.ComponentTypeLibrary,
+				Name:   name,
+			})
+		}
+	}
+
+	// Primary framework from model card
+	if info.CardData != nil && info.CardData.LibraryName != "" {
+		addDep(info.CardData.LibraryName)
+	}
+
+	// Additional frameworks inferred from tags
+	frameworkTags := []string{
+		"pytorch", "tensorflow", "jax", "keras",
+		"onnx", "gguf", "mlx", "llama.cpp",
+	}
+	for _, tag := range info.Tags {
+		lower := strings.ToLower(tag)
+		for _, fw := range frameworkTags {
+			if strings.Contains(lower, fw) {
+				addDep(fw)
+			}
+		}
+	}
+
+	if len(deps) == 0 {
+		return nil
+	}
+	return &deps
+}
+
+// buildEthicalConsiderations builds ethical/security considerations from model metadata.
+func buildEthicalConsiderations(info *hfModelInfo) *[]cdx.MLModelCardEthicalConsideration {
+	var ethics []cdx.MLModelCardEthicalConsideration
+	seen := map[string]bool{}
+
+	add := func(name, mitigation string) {
+		if !seen[name] {
+			seen[name] = true
+			ethics = append(ethics, cdx.MLModelCardEthicalConsideration{
+				Name:               name,
+				MitigationStrategy: mitigation,
+			})
+		}
+	}
+
+	// Gated / restricted access
+	if isGated(info.Gated) {
+		add("Restricted Access",
+			"Model requires HuggingFace authorisation; accept the model terms or contact the author to gain access")
+	}
+
+	// Inference disabled by author
+	if info.CardData != nil && strings.ToLower(info.CardData.Inference) == "false" {
+		add("Direct Inference Discouraged",
+			"The model author recommends against direct inference; consult model documentation for intended usage patterns")
+	}
+
+	// Content and safety tags
+	for _, tag := range info.Tags {
+		lower := strings.ToLower(tag)
+		switch {
+		case strings.Contains(lower, "has-bias") || lower == "bias":
+			add("Potential Bias",
+				"Model may reflect biases present in training data; evaluate outputs before deployment in sensitive contexts")
+		case strings.Contains(lower, "adult-only") || strings.Contains(lower, "not-for-all-audiences"):
+			add("Adult / Restricted Content",
+				"Restrict deployment to appropriate audiences; implement content-filtering controls")
+		case strings.Contains(lower, "medical") || strings.Contains(lower, "clinical") || strings.Contains(lower, "health"):
+			add("Medical Use Caution",
+				"Outputs must not replace professional medical advice; involve qualified healthcare providers")
+		case strings.Contains(lower, "legal"):
+			add("Legal Use Caution",
+				"Outputs must not replace professional legal advice; consult a qualified legal professional")
+		case strings.Contains(lower, "financial") || strings.Contains(lower, "finance"):
+			add("Financial Use Caution",
+				"Outputs must not replace professional financial advice; consult a qualified financial advisor")
+		case strings.Contains(lower, "toxic") || strings.Contains(lower, "hate-speech"):
+			add("Toxic Content Risk",
+				"Model may generate harmful content; implement output filtering and monitoring in production")
+		}
+	}
+
+	if len(ethics) == 0 {
+		return nil
+	}
+	return &ethics
+}
+
+// buildEnvironmentalConsiderations extracts CO2 / energy information from the model card.
+func buildEnvironmentalConsiderations(info *hfModelInfo) *cdx.MLModelCardEnvironmentalConsiderations {
+	if info.CardData == nil {
+		return nil
+	}
+	d := parseCO2Detail(info.CardData.CO2EqEmissions)
+	if d == nil {
+		return nil
+	}
+
+	var props []cdx.Property
+	add := func(name, value string) {
+		if value != "" {
+			props = append(props, cdx.Property{Name: name, Value: value})
+		}
+	}
+
+	add("co2EqKg", fmt.Sprintf("%.4f", d.KgCO2Eq))
+	add("co2Source", d.Source)
+	add("trainingType", d.TrainingType)
+	add("trainingLocation", d.GeographicalLocation)
+	add("trainingHardware", d.HardwareUsed)
+
+	if len(props) == 0 {
+		return nil
+	}
+	return &cdx.MLModelCardEnvironmentalConsiderations{Properties: &props}
+}
+
+// buildPerformanceTradeoffs returns a list of known performance tradeoffs inferred from
+// model size and quantisation settings.
+func buildPerformanceTradeoffs(info *hfModelInfo) []string {
+	var tradeoffs []string
+
+	totalParams := parseSafeTensors(info.SafeTensors)
+	if totalParams >= 7_000_000_000 {
+		tradeoffs = append(tradeoffs, fmt.Sprintf(
+			"Large model (%s parameters) has high inference latency and memory requirements",
+			formatParamCount(totalParams)))
+	} else if totalParams >= 1_000_000_000 {
+		tradeoffs = append(tradeoffs, fmt.Sprintf(
+			"Model (%s parameters) requires moderate compute for inference",
+			formatParamCount(totalParams)))
+	}
+
+	if info.Config != nil {
+		switch strings.ToLower(info.Config.TorchDtype) {
+		case "int8":
+			tradeoffs = append(tradeoffs, "INT8 quantisation reduces memory footprint at the cost of slight accuracy degradation")
+		case "int4", "4bit", "nf4":
+			tradeoffs = append(tradeoffs, "4-bit quantisation significantly reduces memory usage but may noticeably affect output quality")
+		}
+	}
+
+	return tradeoffs
 }

@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>knoxctl · AccuKnox</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 L28 7 L28 17 C28 23.5 22.5 28.5 16 30 C9.5 28.5 4 23.5 4 17 L4 7 Z' fill='%230056B8'/%3E%3Cpath d='M16 2 L28 7 L28 17 C28 23.5 22.5 28.5 16 30 C9.5 28.5 4 23.5 4 17 L4 7 Z' fill='none' stroke='%23003E8A' stroke-width='1'/%3E%3Cpath d='M11 16 L14.5 19.5 L21 13' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
 <style>
 /* ── CSS Variables ─────────────────────────────────────────────────────────── */
 :root {
@@ -736,14 +737,73 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
       <div class="card-sub">Fetches model metadata from the model registry and produces a CycloneDX 1.7 AIBOM</div>
       <div class="form-grid">
         <div class="field span2">
-          <label>Model Identifier</label>
-          <input type="text" id="ai-model" placeholder="google-bert/bert-base-uncased"/>
-          <small>Format: <em>owner/model-name</em></small>
+          <label>Source</label>
+          <div style="display:flex;gap:20px;align-items:center;padding:6px 0">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;text-transform:none;cursor:pointer">
+              <input type="radio" name="ai-source" value="huggingface" checked onchange="onAISourceChange()"> HuggingFace
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;text-transform:none;cursor:pointer">
+              <input type="radio" name="ai-source" value="bedrock" onchange="onAISourceChange()"> AWS Bedrock
+            </label>
+          </div>
         </div>
-        <div class="field">
-          <label>API Token <span style="font-weight:400;text-transform:none">(optional)</span></label>
-          <input type="password" id="ai-token" placeholder="Required for private / gated models"/>
+
+        <!-- HuggingFace fields -->
+        <div id="ai-hf-fields" class="span2" style="display:contents">
+          <div class="field span2">
+            <label>Model Identifier</label>
+            <input type="text" id="ai-model" placeholder="google-bert/bert-base-uncased"/>
+            <small>Format: <em>owner/model-name</em></small>
+          </div>
+          <div class="field">
+            <label>API Token <span style="font-weight:400;text-transform:none">(optional)</span></label>
+            <input type="password" id="ai-token" placeholder="Required for private / gated models"/>
+          </div>
         </div>
+
+        <!-- AWS Bedrock fields -->
+        <div id="ai-bedrock-fields" class="span2" style="display:none">
+          <div class="form-grid" style="padding:0">
+            <div class="field">
+              <label>AWS Region</label>
+              <input type="text" id="ai-bd-region" placeholder="us-east-1"/>
+            </div>
+            <div class="field">
+              <label>Model ID filter <span style="font-weight:400;text-transform:none">(optional)</span></label>
+              <input type="text" id="ai-bd-model" placeholder="Leave blank for all models"/>
+            </div>
+            <div class="field span2">
+              <label>Credentials</label>
+              <div style="display:flex;gap:20px;align-items:center;padding:4px 0">
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;text-transform:none;cursor:pointer">
+                  <input type="radio" name="ai-bd-cred" value="default" checked onchange="onAIBedrockCredChange()"> Use default credential chain
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-weight:400;text-transform:none;cursor:pointer">
+                  <input type="radio" name="ai-bd-cred" value="custom" onchange="onAIBedrockCredChange()"> Custom keys
+                </label>
+              </div>
+              <small>Default chain: env vars → ~/.aws/credentials → IAM role</small>
+            </div>
+            <div id="ai-bd-custom-creds" class="span2" style="display:none">
+              <div class="form-grid" style="padding:0">
+                <div class="field">
+                  <label>Access Key ID</label>
+                  <input type="text" id="ai-bd-key" placeholder="AKIAIOSFODNN7EXAMPLE"/>
+                </div>
+                <div class="field">
+                  <label>Secret Access Key</label>
+                  <input type="password" id="ai-bd-secret" placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"/>
+                </div>
+                <div class="field">
+                  <label>Session Token <span style="font-weight:400;text-transform:none">(optional)</span></label>
+                  <input type="password" id="ai-bd-token" placeholder="Temporary session token"/>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Common metadata overrides (always visible) -->
         <div class="field">
           <label>Override Name</label>
           <input type="text" id="ai-name" placeholder="Leave blank to use model ID"/>
@@ -869,13 +929,27 @@ pre,code{font-family:'SF Mono','Fira Code',Consolas,monospace}
         </div>
         <div class="field">
           <label>Project</label>
-          <input type="text" id="cfg-project" placeholder="my-project"/>
-          <small>Project name — used as <code>project_id</code> in the upload API</small>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="cfg-project" style="flex:1">
+              <option value="">— save URL &amp; token, then click ↻ —</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="cfg-projects-btn" onclick="loadProjects()" title="Fetch projects from control plane" style="flex-shrink:0;padding:6px 10px">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+          </div>
+          <small id="cfg-project-hint">Select your AccuKnox project — click ↻ to load the list</small>
         </div>
         <div class="field">
           <label>Label</label>
-          <input type="text" id="cfg-label" placeholder="production"/>
-          <small>Label string — used as <code>label_id</code> in the upload API</small>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="cfg-label" style="flex:1">
+              <option value="">— save URL &amp; token, then click ↻ —</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="cfg-labels-btn" onclick="loadLabels()" title="Fetch labels from control plane" style="flex-shrink:0;padding:6px 10px">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+          </div>
+          <small id="cfg-label-hint">Select a label — click ↻ to load the list</small>
         </div>
         <div class="field" style="grid-column:1/-1">
           <label>API Token</label>
@@ -1140,6 +1214,11 @@ function nav(el, sectionId) {
   if (sec) sec.classList.add('active');
   const titles = {dashboard:'Dashboard',sbom:'Software BOM',cbom:'Cryptography BOM',aibom:'AI / ML BOM','bom-settings':'BOM Settings',vm:'VM Onboarding',probe:'Security Probe',imgscan:'Container Security'};
   document.getElementById('pageTitle').textContent = titles[id] || id;
+  // Auto-load project/label lists when navigating to settings (if credentials are saved).
+  if (id === 'bom-settings' && _bomSettings.control_plane && _bomSettings.token) {
+    loadProjects();
+    loadLabels();
+  }
 }
 
 /* ── Dark Mode ─────────────────────────────────────────────────────────────── */
@@ -1539,21 +1618,49 @@ function runCBOMImage() {
 }
 
 /* ── AIBOM ─────────────────────────────────────────────────────────────────── */
+function onAISourceChange() {
+  const src = document.querySelector('input[name="ai-source"]:checked')?.value || 'huggingface';
+  const hfEl = document.getElementById('ai-hf-fields');
+  const bdEl = document.getElementById('ai-bedrock-fields');
+  if (hfEl) hfEl.style.display = src === 'huggingface' ? 'contents' : 'none';
+  if (bdEl) bdEl.style.display = src === 'bedrock'     ? ''         : 'none';
+}
+function onAIBedrockCredChange() {
+  const mode = document.querySelector('input[name="ai-bd-cred"]:checked')?.value || 'default';
+  const el = document.getElementById('ai-bd-custom-creds');
+  if (el) el.style.display = mode === 'custom' ? '' : 'none';
+}
 function runAIBOM() {
   if (_cmdLocked['aibom']) { runEditedCmd('ai-btn','ai-stop','aibom', document.getElementById('preview-aibom')?.value||''); return; }
-  if (!v('ai-model')) { alert('Please enter a model identifier.'); return; }
+  const src = document.querySelector('input[name="ai-source"]:checked')?.value || 'huggingface';
+  if (src === 'huggingface' && !v('ai-model')) { alert('Please enter a model identifier.'); return; }
+  if (src === 'bedrock' && !v('ai-bd-region')) { alert('Please enter an AWS region.'); return; }
   opStart('ai-btn', 'ai-stop');
   clearOutput('aibom');
   showSignResult('aibom', {});
   showProgress('aibom', 5, 'Initialising…');
-  sseRun('/api/aibom/generate', {
-    modelId:      v('ai-model'),
-    token:        v('ai-token'),
+  const payload = {
+    source:       src,
     name:         v('ai-name'),
     version:      v('ai-ver'),
     manufacturer: v('ai-mfg'),
     ...getSignParams('ai'),
-  },
+  };
+  if (src === 'bedrock') {
+    payload.region = v('ai-bd-region');
+    const credMode = document.querySelector('input[name="ai-bd-cred"]:checked')?.value || 'default';
+    payload.useDefaultCredentials = (credMode === 'default');
+    if (credMode !== 'default') {
+      payload.accessKeyId     = v('ai-bd-key');
+      payload.secretAccessKey = v('ai-bd-secret');
+      payload.sessionToken    = v('ai-bd-token');
+    }
+    payload.modelId = v('ai-bd-model'); // optional filter
+  } else {
+    payload.modelId = v('ai-model');
+    payload.token   = v('ai-token');
+  }
+  sseRun('/api/aibom/generate', payload,
   'aibom',
   data => {
     counters.aibom++;
@@ -1762,6 +1869,25 @@ function buildCmdCBOMImg() {
 }
 
 function buildCmdAIBOM() {
+  const src = document.querySelector('input[name="ai-source"]:checked')?.value || 'huggingface';
+  if (src === 'bedrock') {
+    const parts = ['knoxctl aibom bedrock'];
+    parts.push('--region ' + shellQ(v('ai-bd-region') || '<region>'));
+    const credMode = document.querySelector('input[name="ai-bd-cred"]:checked')?.value || 'default';
+    if (credMode === 'default') {
+      parts.push('--use-default-credentials');
+    } else {
+      if (v('ai-bd-key'))    parts.push('--access-key-id ' + shellQ(v('ai-bd-key')));
+      if (v('ai-bd-secret')) parts.push('--secret-access-key ***');
+      if (v('ai-bd-token'))  parts.push('--session-token ***');
+    }
+    if (v('ai-bd-model')) parts.push('--model ' + shellQ(v('ai-bd-model')));
+    if (v('ai-name'))   parts.push('--name ' + shellQ(v('ai-name')));
+    if (v('ai-ver'))    parts.push('--version ' + shellQ(v('ai-ver')));
+    if (v('ai-mfg'))    parts.push('--manufacturer ' + shellQ(v('ai-mfg')));
+    buildSignParts('ai').forEach(p => parts.push(p));
+    return fmtCmd(parts);
+  }
   const parts = ['knoxctl aibom generate'];
   parts.push('--model ' + shellQ(v('ai-model') || '<model>'));
   if (v('ai-token'))  parts.push('--token ***');
@@ -1925,12 +2051,15 @@ function loadConfig() {
   fetch('/api/config').then(r => r.json()).then(cfg => {
     const b = cfg.bom || {};
     _bomSettings = { control_plane: b.control_plane||'', project: b.project||'', label: b.label||'', token: b.token||'' };
-    // Populate settings form
+    // Populate settings form fields (project/label selects are populated by their loaders)
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-    set('cfg-cp',      _bomSettings.control_plane);
-    set('cfg-project', _bomSettings.project);
-    set('cfg-label',   _bomSettings.label);
-    set('cfg-token',   _bomSettings.token);
+    set('cfg-cp',    _bomSettings.control_plane);
+    set('cfg-token', _bomSettings.token);
+    // Auto-fetch project and label lists if credentials are already saved.
+    if (_bomSettings.control_plane && _bomSettings.token) {
+      loadProjects();
+      loadLabels();
+    }
     // Restore dashboard counters
     const d = cfg.dashboard || {};
     counters.sbom  = d.sbom  || 0;
@@ -1942,6 +2071,87 @@ function loadConfig() {
     document.getElementById('dash-aibom').textContent = counters.aibom;
     document.getElementById('dash-scan').textContent  = counters.scan;
   }).catch(() => {});
+}
+
+function loadProjects() {
+  const btn  = document.getElementById('cfg-projects-btn');
+  const sel  = document.getElementById('cfg-project');
+  const hint = document.getElementById('cfg-project-hint');
+  if (!sel) return;
+  if (btn) btn.disabled = true;
+  if (hint) { hint.textContent = 'Loading projects…'; hint.style.color = 'var(--text-muted)'; }
+  fetch('/api/config/projects')
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) {
+        if (hint) { hint.textContent = '⚠ ' + res.error; hint.style.color = 'var(--error)'; }
+        return;
+      }
+      // Accept common response shapes: array, or object with data/projects/items/results key.
+      const arr = Array.isArray(res) ? res
+                : (res.data || res.projects || res.items || res.results || []);
+      const current = _bomSettings.project;
+      sel.innerHTML = '<option value="">— select a project —</option>';
+      arr.forEach(p => {
+        // Try common field names for ID and display name.
+        const id   = String(p.id ?? p.node_id ?? p.project_id ?? '');
+        const name = p.name ?? p.title ?? id;
+        const opt  = document.createElement('option');
+        opt.value       = id;   // save UUID as project_id
+        opt.textContent = name;
+        if (id === current || name === current) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      if (hint) {
+        hint.textContent = arr.length
+          ? arr.length + ' project' + (arr.length !== 1 ? 's' : '') + ' loaded'
+          : 'No projects found';
+        hint.style.color = 'var(--success)';
+      }
+    })
+    .catch(e => {
+      if (hint) { hint.textContent = '⚠ ' + e; hint.style.color = 'var(--error)'; }
+    })
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+
+function loadLabels() {
+  const btn  = document.getElementById('cfg-labels-btn');
+  const sel  = document.getElementById('cfg-label');
+  const hint = document.getElementById('cfg-label-hint');
+  if (!sel) return;
+  if (btn) btn.disabled = true;
+  if (hint) { hint.textContent = 'Loading labels…'; hint.style.color = 'var(--text-muted)'; }
+  fetch('/api/config/labels')
+    .then(r => r.json())
+    .then(res => {
+      if (res.error) {
+        if (hint) { hint.textContent = '⚠ ' + res.error; hint.style.color = 'var(--error)'; }
+        return;
+      }
+      const arr = Array.isArray(res) ? res
+                : (res.data || res.labels || res.items || res.results || []);
+      const current = _bomSettings.label;
+      sel.innerHTML = '<option value="">— select a label —</option>';
+      arr.forEach(l => {
+        const name = l.name ?? l.title ?? String(l.id ?? '');
+        const opt  = document.createElement('option');
+        opt.value       = name;  // save label name string (not UUID)
+        opt.textContent = name;
+        if (name === current) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      if (hint) {
+        hint.textContent = arr.length
+          ? arr.length + ' label' + (arr.length !== 1 ? 's' : '') + ' loaded'
+          : 'No labels found';
+        hint.style.color = 'var(--success)';
+      }
+    })
+    .catch(e => {
+      if (hint) { hint.textContent = '⚠ ' + e; hint.style.color = 'var(--error)'; }
+    })
+    .finally(() => { if (btn) btn.disabled = false; });
 }
 
 function saveSettings() {
