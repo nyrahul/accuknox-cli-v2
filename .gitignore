@@ -1,6 +1,7 @@
 # Binaries for programs and plugins
 pkg/cbom/cbomkit-theia-bin
 pkg/tools/bins/imgscan
+pkg/vm/rra-agent
 *.key
 *.pub
 .DS_Store
