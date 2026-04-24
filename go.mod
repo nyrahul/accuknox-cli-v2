@@ -30,6 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.5
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.5
 	github.com/aws/aws-sdk-go-v2/service/bedrock v1.59.0
+	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/fatih/color v1.18.0
@@ -226,7 +227,6 @@ require (
 	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
-	github.com/coreos/go-systemd/v22 v22.6.0 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect

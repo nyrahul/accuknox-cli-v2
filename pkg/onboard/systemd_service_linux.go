@@ -3,30 +3,16 @@
 package onboard
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"io/fs"
-	"maps"
-	"net/http"
 	"os"
-	"path"
-	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
-	"github.com/Masterminds/sprig"
+	dbus "github.com/coreos/go-systemd/v22/dbus"
+
 	cm "github.com/accuknox/accuknox-cli-v2/pkg/common"
 	"github.com/accuknox/accuknox-cli-v2/pkg/logger"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"golang.org/x/mod/semver"
-	"oras.land/oras-go/v2/content"
-	"oras.land/oras-go/v2/registry/remote"
 )
 
 func StartSystemdService(serviceName string) error {
