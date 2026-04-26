@@ -1,0 +1,43 @@
+tools:
+  # Example tool configuration
+  # Uncomment and customize the entries below based on your needs
+
+  # - name: trivy
+  #   description: Vulnerability scanner for containers
+  #   install_as: trivy
+  #   version: v0.50.0
+  #   platforms:
+  #     linux:
+  #       amd64:
+  #         source: https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Linux-64bit.tar.gz
+  #         sha256: ""
+  #       arm64:
+  #         source: https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Linux-ARM64.tar.gz
+  #         sha256: ""
+  #     darwin:
+  #       amd64:
+  #         source: https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_macOS-64bit.tar.gz
+  #         sha256: ""
+  #       arm64:
+  #         source: https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_macOS-ARM64.tar.gz
+  #         sha256: ""
+  #     windows:
+  #       amd64:
+  #         source: https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Windows-64bit.zip
+  #         sha256: ""
+  #         install_as: trivy.exe
+
+  # - name: imgscan
+  #   description: Image scanning tool
+  #   install_as: imgscan
+  #   version: latest
+  #   builtin: true
+  #   platforms:
+  #     linux:
+  #       amd64: {}
+  #       arm64: {}
+  #     darwin:
+  #       amd64: {}
+  #       arm64: {}
+
+# Empty tools array - add your tool configurations above
